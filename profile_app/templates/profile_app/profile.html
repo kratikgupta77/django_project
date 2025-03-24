@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            text-align: center;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.15);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+            width: 320px;
+            text-align: center;
+        }
+        h2 {
+            margin-bottom: 15px;
+        }
+        .profile-pic {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            border: 2px solid white;
+            object-fit: cover;
+            display: block;
+            margin: 0 auto 15px auto;
+        }
+        input, button {
+            width: 100%;
+            padding: 10px;
+            margin: 8px 0;
+            border: none;
+            border-radius: 5px;
+        }
+        .btn {
+            background-color: #4CAF50;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            transition: 0.3s;
+            margin-top: 5px;
+        }
+        .btn:hover {
+            background-color: #45a049;
+        }
+        .btn-secondary {
+            background-color: #FF5733;
+        }
+        .btn-secondary:hover {
+            background-color: #E64A19;
+        }
+        .button-group {
+            display: flex;
+            justify-content: space-between;
+        }
+        .button-group a {
+            flex: 1;
+            text-align: center;
+            padding: 10px;
+            text-decoration: none;
+            color: white;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Welcome, {{ request.user.username }}</h2>
+
+    <!-- Profile Picture -->
+    <img src="{{ profile_picture }}" alt="Profile Picture" class="profile-pic">
+
+    <!-- Update Username Form -->
+    <form method="POST">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit" name="update_profile" class="btn">Update Username</button>
+    </form>
+
+    <!-- Update Profile Picture Form -->
+    <form method="POST" enctype="multipart/form-data">
+        {% csrf_token %}
+        <input type="file" name="profile_picture">
+        <button type="submit" name="update_picture" class="btn">Update Profile Picture</button>
+    </form>
+
+    <!-- Navigation Buttons -->
+    <div class="button-group">
+        <a href="{% url 'messages_view' %}" class="btn-secondary">Your Messages</a>
+        <a href="{% url 'logout' %}" class="btn-secondary">Logout</a>
+    </div>
+</div>
+
+</body>
+</html>

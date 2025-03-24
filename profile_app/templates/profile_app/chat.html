@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            text-align: center;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.15);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+            width: 320px;
+            text-align: center;
+        }
+        h2 {
+            margin-bottom: 15px;
+        }
+        select, textarea, button {
+            width: 100%;
+            padding: 10px;
+            margin: 8px 0;
+            border: none;
+            border-radius: 5px;
+        }
+        .chat-box {
+            max-height: 200px;
+            overflow-y: auto;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 10px;
+            border-radius: 5px;
+            text-align: left;
+        }
+        .btn {
+            background-color: #4CAF50;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        .btn:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <form method="POST" action="{% url 'messages_view' %}">
+            {% csrf_token %}
+            <label for="receiver">Choose User:</label>
+            <select name="receiver" id="receiver-select" onchange="this.form.submit()">
+                <option value="">-- Select a user --</option>
+                {% for user in users %}
+                    <option value="{{ user.id }}" {% if selected_user and selected_user.id == user.id %}selected{% endif %}>
+                        {{ user.username }}
+                    </option>
+                {% endfor %}
+            </select>
+        </form>
+
+        {% if selected_user %}
+            <h2>Chat with {{ selected_user.username }}</h2>
+            <div class="chat-box">
+                {% if messages %}
+                    {% for message in messages %}  
+                        <p><b>{{ message.sender.username }}:</b> {{ message.text }}</p>
+                    {% endfor %}
+                {% else %}
+                    <p>No messages yet. Start the conversation!</p>
+                {% endif %}
+            </div>
+            <form method="POST" action="{% url 'send_message' %}">
+                {% csrf_token %}
+                <input type="hidden" name="receiver" value="{{ selected_user.id }}">
+                <textarea name="text" placeholder="Type your message here"></textarea>
+                <button type="submit" class="btn">Send</button>
+            </form>
+        {% endif %}
+    </div>
+</body>
+</html>
