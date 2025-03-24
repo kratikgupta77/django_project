@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+  <h2>Profile</h2>
+  <form method="POST" enctype="multipart/form-data">
+    {% csrf_token %}
+    
+    <fieldset>
+      <legend>Update Your Profile</legend>
+      {{ u_form.as_p }}  {# Form for updating username and email #}
+      {{ p_form.as_p }}  {# Form for updating profile picture #}
+    </fieldset>
+    
+    <button type="submit">Update Profile</button>
+  </form>
+
+  {% if user.profile.profile_picture %}
+    <img src="{{ user.profile.profile_picture.url }}" alt="Profile Picture" style="width: 150px; height: 150px;">
+  {% else %}
+    <p>No profile picture uploaded.</p>
+  {% endif %}
+
+{% endblock %}

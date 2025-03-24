@@ -1,0 +1,13 @@
+message model :
+1. message is sent through rsa encryption -public key is stored in db while private key stored at client side.
+2. message must be first sent TO A web socket and there it waits for the recv to be online.
+3. message is displayed without reload.
+
+(Nginx does NOT directly affect encryption but can help ensure WebSockets always route messages correctly to avoid dropped or lost data.
+Nginx as a WebSocket reverse proxy ensures stable & persistent WebSocket connections.
+If real-time updates are required without page refresh, WebSockets + Nginx is better.
+)
+problems :
+
+This error happens because the decryption key used does not match the key that was used to encrypt the message.
+The encryption key changed after storing messages in the database.

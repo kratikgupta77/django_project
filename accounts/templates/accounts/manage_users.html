@@ -1,0 +1,6 @@
+<h2>Manage Users</h2>
+<ul>
+    {% for user in users %}
+        <li>{{ user.username }} - <a href="{% url 'edit_user' user.id %}">Edit</a></li>
+    {% endfor %}
+</ul>
