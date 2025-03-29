@@ -1,93 +1,230 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chat</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            color: white;
-            text-align: center;
-        }
-        .container {
-            background: rgba(255, 255, 255, 0.15);
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
-            width: 320px;
-            text-align: center;
-        }
-        h2 {
-            margin-bottom: 15px;
-        }
-        select, textarea, button {
-            width: 100%;
-            padding: 10px;
-            margin: 8px 0;
-            border: none;
-            border-radius: 5px;
-        }
-        .chat-box {
-            max-height: 200px;
-            overflow-y: auto;
-            background: rgba(255, 255, 255, 0.2);
-            padding: 10px;
-            border-radius: 5px;
-            text-align: left;
-        }
-        .btn {
-            background-color: #4CAF50;
-            color: white;
-            font-size: 16px;
-            cursor: pointer;
-            transition: 0.3s;
-        }
-        .btn:hover {
-            background-color: #45a049;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <form method="POST" action="{% url 'messages_view' %}">
-            {% csrf_token %}
-            <label for="receiver">Choose User:</label>
-            <select name="receiver" id="receiver-select" onchange="this.form.submit()">
-                <option value="">-- Select a user --</option>
-                {% for user in users %}
-                    <option value="{{ user.id }}" {% if selected_user and selected_user.id == user.id %}selected{% endif %}>
-                        {{ user.username }}
-                    </option>
-                {% endfor %}
-            </select>
-        </form>
-
-        {% if selected_user %}
-            <h2>Chat with {{ selected_user.username }}</h2>
-            <div class="chat-box">
-                {% if messages %}
-                    {% for message in messages %}  
-                        <p><b>{{ message.sender.username }}:</b> {{ message.text }}</p>
-                    {% endfor %}
-                {% else %}
-                    <p>No messages yet. Start the conversation!</p>
-                {% endif %}
-            </div>
-            <form method="POST" action="{% url 'send_message' %}">
-                {% csrf_token %}
-                <input type="hidden" name="receiver" value="{{ selected_user.id }}">
-                <textarea name="text" placeholder="Type your message here"></textarea>
-                <button type="submit" class="btn">Send</button>
-            </form>
-        {% endif %}
+{% extends "base.html" %}
+{% block content %}
+<div class="chat-container">
+    <h2>Chat</h2>
+    <div class="chat-sidebar">
+        <h3>Users</h3>
+        <ul>
+            {% for user in users %}
+                <li>
+                    <a href="?receiver={{ user.id }}" class="user-link" data-user="{{ user.id }}">{{ user.username }}</a>
+                </li>
+            {% endfor %}
+        </ul>
     </div>
-</body>
-</html>
+
+    <div class="chat-box">
+        <div id="chat-messages">
+            {% for message in messages %}
+                <p data-id="{{ message.id }}"><b>{{ message.sender.username }}:</b> {{ message.text }}</p>
+            {% endfor %}
+        </div>
+
+        <div class="chat-input">
+            <input type="text" id="chat-message-input" placeholder="Type a message..." autocomplete="off">
+            <button id="chat-message-submit">Send</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    async function generateKeys() {
+    if (!window.crypto || !window.crypto.subtle) {
+        alert("Your browser does not support Web Crypto API.");
+        return;
+    }
+
+    // Generate RSA key pair
+    const keyPair = await window.crypto.subtle.generateKey(
+        {
+            name: "RSA-OAEP",
+            modulusLength: 2048,
+            publicExponent: new Uint8Array([1, 0, 1]),
+            hash: "SHA-256",
+        },
+        true,
+        ["encrypt", "decrypt"]
+    );
+
+    // Export Public Key
+    const publicKey = await window.crypto.subtle.exportKey("spki", keyPair.publicKey);
+    const publicKeyBase64 = btoa(String.fromCharCode(...new Uint8Array(publicKey)));
+
+    // Export Private Key (Store in IndexedDB or SessionStorage)
+    const privateKey = await window.crypto.subtle.exportKey("pkcs8", keyPair.privateKey);
+    const privateKeyBase64 = btoa(String.fromCharCode(...new Uint8Array(privateKey)));
+
+    sessionStorage.setItem("privateKey", privateKeyBase64);  // Save private key (Not in DB!)
+
+    // Send public key to server
+    fetch("/profile/update_public_key/", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": getCSRFToken(),
+        },
+        body: JSON.stringify({ public_key: publicKeyBase64 }),
+    });
+}
+
+// Run on first login
+if (!sessionStorage.getItem("privateKey")) {
+    generateKeys();
+}
+
+// Function to Get CSRF Token
+function getCSRFToken() {
+    return document.cookie.split("; ")
+        .find(row => row.startsWith("csrftoken="))
+        ?.split("=")[1];
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    const chatBox = document.getElementById("chat-messages");
+    const messageInput = document.getElementById("chat-message-input");
+    const sendBtn = document.getElementById("chat-message-submit");
+
+    let selectedReceiver = new URLSearchParams(window.location.search).get("receiver");
+    if (!selectedReceiver) {
+        alert("Select a user to start chatting.");
+        return;
+    }
+
+    let lastMessageId = 0;
+
+    // Send message via AJAX
+    sendBtn.addEventListener("click", async () => {
+        const text = messageInput.value.trim();
+        if (!text) return;
+
+        const response = await fetch("{% url 'send_message' %}", {
+            method: "POST",
+            headers: {
+                "X-CSRFToken": "{{ csrf_token }}",
+                "Content-Type": "application/x-www-form-urlencoded",
+            },
+            body: `receiver=${selectedReceiver}&text=${encodeURIComponent(text)}`,
+        });
+
+        const result = await response.json();
+        if (result.success) {
+            addMessageToUI(result.message);
+        }
+
+        messageInput.value = "";
+    });
+
+    // Function to add message to UI
+    function addMessageToUI(message) {
+        chatBox.innerHTML += `<p data-id="${message.id}"><b>${message.sender}:</b> ${message.text}</p>`;
+        lastMessageId = message.id; // Update last seen message ID
+    }
+
+    // Fetch new messages periodically
+    async function fetchNewMessages() {
+        const response = await fetch(`{% url 'fetch_messages' %}?receiver=${selectedReceiver}&last_message_id=${lastMessageId}`);
+        const result = await response.json();
+
+        result.messages.forEach((message) => {
+            if (document.querySelector(`[data-id="${message.id}"]`)) return; // Skip duplicates
+            addMessageToUI(message);
+        });
+    }
+
+    // Fetch new messages every 2 seconds
+    setInterval(fetchNewMessages, 2000);
+});
+async function encryptMessage(plainText, receiverUsername) {
+    console.log("🔵 Plain Text Before Encryption:", plainText);  // Debug
+
+    const response = await fetch(`/profile/get_public_key/${receiverUsername}/`);
+    const data = await response.json();
+
+    if (!data.public_key) {
+        alert("Receiver has no public key!");
+        return null;
+    }
+
+    const publicKeyBinary = Uint8Array.from(atob(data.public_key), c => c.charCodeAt(0));
+    const publicKey = await window.crypto.subtle.importKey(
+        "spki",
+        publicKeyBinary,
+        { name: "RSA-OAEP", hash: "SHA-256" },
+        true,
+        ["encrypt"]
+    );
+
+    const encoder = new TextEncoder();
+    const encrypted = await window.crypto.subtle.encrypt({ name: "RSA-OAEP" }, publicKey, encoder.encode(plainText));
+
+    const encryptedBase64 = btoa(String.fromCharCode(...new Uint8Array(encrypted)));
+    console.log("🟢 Encrypted Message (Base64):", encryptedBase64);  // Debug
+
+    return encryptedBase64;
+}
+
+    
+    document.querySelector("#chat-message-submit").onclick = async function () {
+        const messageInput = document.querySelector("#chat-message-input");
+        const message = messageInput.value;
+        const receiverUsername = "{{ selected_user.username }}";  // Assuming you have selected user
+    
+        const encryptedMessage = await encryptMessage(message, receiverUsername);
+        if (encryptedMessage) {
+            socket.send(JSON.stringify({
+                "message": encryptedMessage,
+                "username": "{{ request.user.username }}"
+            }));
+        }
+        messageInput.value = "";
+    };
+    async function decryptMessage(encryptedText) {
+    console.log("🟠 Received Encrypted Message:", encryptedText);  // Debug
+
+    const privateKeyBase64 = sessionStorage.getItem("privateKey");
+    if (!privateKeyBase64) {
+        alert("Private key not found!");
+        return null;
+    }
+
+    const privateKeyBinary = Uint8Array.from(atob(privateKeyBase64), c => c.charCodeAt(0));
+    const privateKey = await window.crypto.subtle.importKey(
+        "pkcs8",
+        privateKeyBinary,
+        { name: "RSA-OAEP", hash: "SHA-256" },
+        true,
+        ["decrypt"]
+    );
+
+    const encryptedBinary = Uint8Array.from(atob(encryptedText), c => c.charCodeAt(0));
+
+    try {
+        const decrypted = await window.crypto.subtle.decrypt({ name: "RSA-OAEP" }, privateKey, encryptedBinary);
+        const decryptedText = new TextDecoder().decode(decrypted);
+        console.log("🟣 Decrypted Message:", decryptedText);  // Debug
+        return decryptedText;
+    } catch (e) {
+        console.error("❌ Decryption Failed:", e);
+        return null;
+    }
+}
+
+    
+    socket.onmessage = async function (event) {
+        const data = JSON.parse(event.data);
+        const decryptedMessage = await decryptMessage(data.message);
+    
+        if (decryptedMessage) {
+            document.querySelector("#chat-log").innerHTML += `<p><b>${data.username}:</b> ${decryptedMessage}</p>`;
+        }
+    };
+    </script>
+        
+<style>
+.chat-container { display: flex; }
+.chat-sidebar { width: 25%; padding: 10px; border-right: 1px solid #ccc; }
+.chat-box { flex-grow: 1; padding: 10px; }
+.chat-input { display: flex; gap: 10px; margin-top: 10px; }
+.chat-input input { flex-grow: 1; padding: 5px; }
+</style>
+{% endblock %}

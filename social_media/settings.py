@@ -5,13 +5,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECURE_CROSS_ORIGIN_OPENER_POLICY = None  # Disables COOP
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
-
-# SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'django-insecure-j=r449(yv)q(m^&t@uk!!30kw)jl+&i*jgh8k1^*eoy40r^#+w'
 
-# SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
 ALLOWED_HOSTS = ['192.168.2.246', 'localhost', '127.0.0.1','*']
@@ -19,6 +14,7 @@ ALLOWED_HOSTS = ['192.168.2.246', 'localhost', '127.0.0.1','*']
 
 # Application definition
 INSTALLED_APPS = [
+    'daphne',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -27,9 +23,11 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'accounts',
     'channels',
+    'chat',
     'social_media',
     'django_extensions',
     'profile_app',
+    
 ]
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -62,8 +60,6 @@ TEMPLATES = [
 WSGI_APPLICATION = 'social_media.wsgi.application'
 
 
-# Database
-# https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
 DATABASES = {
     'default': {
@@ -71,12 +67,6 @@ DATABASES = {
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
-
-# MEDIA_URL = '/media/'
-# MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
-
-# Password validation
-# https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -124,30 +114,16 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
-# # Ensure default image is found in the media folder
-# DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
-
-
-# from cryptography.fernet import Fernet
-
-# SECRET_KEY = 'your-django-secret-key'
-# MESSAGE_ENCRYPTION_KEY = Fernet.generate_key().decode()
-
-# ASGI_APPLICATION = "social_media.asgi.application"
+ASGI_APPLICATION = "social_media.asgi.application"
 
 CHANNEL_LAYERS = {
-    "default": {
-         "BACKEND": "channels_redis.core.RedisChannelLayer",
-         "CONFIG": {
-             "hosts": [("127.0.0.1 ", 6379)],  
-         },
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            "hosts": [('127.0.0.1', 6379)],
+        },
     },
 }
-# CHANNEL_LAYERS = {
-#     "default": {
-#         "BACKEND": "channels.layers.InMemoryChannelLayer"
-#     }
-# }
 
 
 
