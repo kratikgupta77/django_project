@@ -12,6 +12,9 @@ DEBUG = True
 ALLOWED_HOSTS = ['192.168.2.246', 'localhost', '127.0.0.1','*']
 
 
+FIELD_ENCRYPTION_KEY = os.getenv("FIELD_ENCRYPTION_KEY") # secured private key
+
+
 # Application definition
 INSTALLED_APPS = [
     'daphne',
