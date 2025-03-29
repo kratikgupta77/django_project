@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Chat Room</title>
+</head>
+<body>
+    <h2>Chat Room: {{ room_name }}</h2>
+    <div id="chat-log"></div>
+    <input id="chat-message-input" type="text">
+    <button id="chat-message-submit">Send</button>
+    <script>
+        let socket;
+        function connectWebSocket() {
+            const roomName = "{{ room_name }}";
+            socket = new WebSocket(`ws://127.0.0.1:8000/ws/chat/${roomName}/`);
+    
+            socket.onopen = () => console.log("✅ WebSocket Connected");
+    
+            socket.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                const chatLog = document.querySelector("#chat-log");
+    
+                const messageElement = document.createElement("p");
+                messageElement.innerHTML = `<b>${data.username}:</b> ${data.message}`;
+                chatLog.appendChild(messageElement);
+                chatLog.scrollTop = chatLog.scrollHeight;
+            };
+    
+            socket.onclose = (event) => {
+                console.warn("⚠️ WebSocket Closed. Reconnecting in 3s...");
+                setTimeout(connectWebSocket, 3000); // Auto-reconnect after 3 seconds
+            };
+    
+            socket.onerror = (error) => {
+                console.error("❌ WebSocket Error:", error);
+            };
+        }
+    
+        connectWebSocket();
+    
+        document.querySelector("#chat-message-submit").onclick = function () {
+            const messageInput = document.querySelector("#chat-message-input");
+            const message = messageInput.value;
+    
+            if (message.trim() !== "" && socket.readyState === 1) { // Send only if WebSocket is OPEN
+                socket.send(JSON.stringify({'message': message, 'username': 'Anonymous'}));
+                messageInput.value = "";
+            } else {
+                console.warn("⚠️ WebSocket is not connected. Message not sent.");
+            }
+        };
+    </script>
+    
+    
+</body>
+</html>

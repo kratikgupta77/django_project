@@ -12,9 +12,9 @@ urlpatterns = [
     path('signup/', signup_view, name='signup'),
     path('login/', login_view, name='login'),
     path('logout/', logout_view, name='logout'),
-    path('profile/', include("profile_app.urls")),  
-        path('admin/', admin.site.urls), 
-
+    path('profile/', include("profile_app.urls")), 
+    path('chat/', include("chat.urls")), 
+    path('admin/', admin.site.urls), 
 ]
 
 

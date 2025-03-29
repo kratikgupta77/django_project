@@ -11,10 +11,10 @@ def signup_view(request):
     if request.method == 'POST':
         form = CustomUserCreationForm(request.POST)
         if form.is_valid():
-            user = form.save(commit=False)  # Don't save yet
+            user = form.save(commit=False)  
             user.first_name = form.cleaned_data['first_name']
             user.last_name = form.cleaned_data['last_name']
-            user.save()  # Now save the user
+            user.save()  
             login(request, user)  # Auto-login after signup
             return redirect('frontpage')  # Redirect after signup
     else:
