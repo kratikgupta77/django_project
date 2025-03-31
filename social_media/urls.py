@@ -14,6 +14,7 @@ urlpatterns = [
     path('logout/', logout_view, name='logout'),
     path('profile/', include("profile_app.urls")), 
     path('chat/', include("chat.urls")), 
+    path('p2pmarketplace/', include("p2pmarketplace.urls")), 
     path('admin/', admin.site.urls), 
 ]
 

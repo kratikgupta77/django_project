@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Groups</h2>
+<a href="{% url 'create_group' %}">Create New Group</a>
+<h3>Your Groups</h3>
+<ul>
+    {% for group in user_groups %}
+    <li>
+        <a href="{% url 'group_detail' group.id %}">{{ group.name }}</a>
+        (<a href="{% url 'leave_group' group.id %}">Leave</a>)
+        {% if group.created_by == request.user %}
+            - <a href="{% url 'delete_group' group.id %}">Delete</a>
+        {% endif %}
+    </li>
+    {% empty %}
+    <li>You are not a member of any groups.</li>
+    {% endfor %}
+</ul>
+
+<h3>All Groups</h3>
+<ul>
+    {% for group in groups %}
+        <li>
+            {{ group.name }}
+            {% if request.user not in group.members.all %}
+                (<a href="{% url 'join_group' group.id %}">Join</a>)
+            {% endif %}
+        </li>
+    {% empty %}
+        <li>No groups available.</li>
+    {% endfor %}
+</ul>
+{% endblock %}
