@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Group: {{ group.name }}</h2>
+<div>
+    <strong>Members:</strong>
+    <ul>
+        {% for member in group.members.all %}
+            <li>{{ member.username }}</li>
+        {% endfor %}
+    </ul>
+</div>
+
+<div id="group-chat-messages" style="max-height:400px; overflow-y:auto; border:1px solid #ccc; padding:10px;">
+    {% for message in messages %}
+        <p data-id="{{ message.id }}"><strong>{{ message.sender.username }}:</strong> {{ message.text }}</p>
+    {% endfor %}
+</div>
+
+<form id="group-message-form" method="post" action="{% url 'send_group_message' group.id %}">
+    {% csrf_token %}
+    {{ message_form.as_p }}
+    <button type="submit">Send</button>
+</form>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    const form = document.getElementById("group-message-form");
+    const chatContainer = document.getElementById("group-chat-messages");
+    let lastMessageId = {{ last_message_id }};
+    
+    // Function to append a new message to the chat container.
+    function addMessageToUI(message) {
+        const p = document.createElement("p");
+        p.setAttribute("data-id", message.id);
+        p.innerHTML = `<strong>${message.sender}:</strong> ${message.text}`;
+        chatContainer.appendChild(p);
+        lastMessageId = message.id; // update last seen message id
+        // Scroll to bottom.
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+    
+    // AJAX for sending group message.
+    form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const formData = new FormData(form);
+        const response = await fetch(form.action, {
+            method: "POST",
+            headers: {
+                "X-CSRFToken": document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: formData
+        });
+        const data = await response.json();
+        if (data.success) {
+            addMessageToUI(data.message);
+            form.reset();
+        } else {
+            alert("Message not sent: " + (data.error || "Unknown error"));
+        }
+    });
+    
+    // Function to poll for new group messages.
+    async function fetchNewGroupMessages() {
+        const fetchUrl = `{% url 'fetch_group_messages' group.id %}?last_message_id=${lastMessageId}`;
+        const response = await fetch(fetchUrl);
+        const data = await response.json();
+        if (data.messages) {
+            data.messages.forEach(msg => {
+                // Check if message already exists
+                if (!document.querySelector(`[data-id="${msg.id}"]`)) {
+                    addMessageToUI(msg);
+                }
+            });
+        }
+    }
+    
+    // Poll every 2 seconds.
+    setInterval(fetchNewGroupMessages, 2000);
+});
+</script>
+{% endblock %}

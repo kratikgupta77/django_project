@@ -30,7 +30,7 @@ INSTALLED_APPS = [
     'social_media',
     'django_extensions',
     'profile_app',
-    
+    'p2pmarketplace',
 ]
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
