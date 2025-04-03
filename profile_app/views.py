@@ -8,6 +8,36 @@ from .models import Message, UserProfile, Group, GroupMessage
 from .forms import UserUpdateForm, ProfileUpdateForm, GroupForm, GroupMessageForm
 import json
 
+
+
+from django.http import JsonResponse
+from .models import Message
+from django.core.files.base import ContentFile
+import base64
+
+from django.core.files.base import ContentFile
+
+def receive_encrypted_file(request):
+    if request.method == "POST":
+        file_data = request.POST.get("file")
+        file_name = request.POST.get("fileName")
+        receiver_username = request.POST.get("receiver")
+
+        if not file_data or not file_name or not receiver_username:
+            return JsonResponse({"status": "error", "message": "Missing data"})
+
+        sender = request.user
+        receiver = User.objects.get(username=receiver_username)
+
+        file_content = ContentFile(base64.b64decode(file_data), name=file_name)
+        message = Message.objects.create(sender=sender, receiver=receiver, media=file_content)
+        
+        return JsonResponse({"status": "success", "message_id": message.id})
+    
+    return JsonResponse({"status": "error", "message": "Invalid request"})
+
+
+
 # Existing views...
 @login_required
 def update_public_key(request):
@@ -68,45 +98,67 @@ def messages_view(request):
     }
     return render(request, "profile_app/chat.html", context)
 
+
 @login_required
 def send_message(request):
     if request.method == "POST":
+        sender = request.user
         receiver_id = request.POST.get("receiver")
         text = request.POST.get("text", "").strip()
-        if receiver_id and text:
-            receiver = get_object_or_404(User, id=receiver_id)
-            message = Message.objects.create(sender=request.user, receiver=receiver, text=text)
-            return JsonResponse({
-                "success": True,
-                "message": {
-                    "id": message.id,
-                    "text": message.text,
-                    "timestamp": message.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
-                    "sender": message.sender.username,
-                }
-            })
-    return JsonResponse({"success": False, "error": "Invalid request"}, status=400)
+        media = request.FILES.get("media")  # This will be populated from FormData
+        
+        if not receiver_id:
+            return JsonResponse({"success": False, "error": "Receiver not specified."})
+        
+        receiver = get_object_or_404(User, id=receiver_id)
+        
+        # Create the Message instance with media if provided.
+        message = Message.objects.create(
+            sender=sender, 
+            receiver=receiver, 
+            text=text, 
+            media=media
+        )
+        
+        return JsonResponse({
+            "success": True,
+            "message": {
+                "id": message.id,
+                "sender": sender.username,
+                "text": message.text,
+                "media_url": message.media.url if message.media else None,
+            }
+        })
+    return JsonResponse({"success": False, "error": "Invalid request method."})
 
-@login_required
+
+import mimetypes
+
 def fetch_messages(request):
+    sender = request.user
     receiver_id = request.GET.get("receiver")
     last_message_id = request.GET.get("last_message_id", 0)
-    if receiver_id:
-        selected_user = get_object_or_404(User, id=receiver_id)
-        new_messages = Message.objects.filter(
-            Q(sender=request.user, receiver=selected_user) |
-            Q(sender=selected_user, receiver=request.user),
-            id__gt=last_message_id
-        ).order_by("timestamp")
-        messages_data = [{
-            "id": msg.id,
-            "text": msg.text,
-            "timestamp": msg.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
-            "sender": msg.sender.username,
-        } for msg in new_messages]
-        return JsonResponse({"messages": messages_data})
-    return JsonResponse({"messages": []})
 
+    if not receiver_id:
+        return JsonResponse({"success": False, "error": "Receiver not specified."})
+
+    receiver = get_object_or_404(User, id=receiver_id)
+
+    messages = Message.objects.filter(
+        sender__in=[sender, receiver], receiver__in=[sender, receiver], id__gt=last_message_id
+    ).order_by("timestamp")
+
+    messages_data = [
+        {
+            "id": msg.id,
+            "sender": msg.sender.username,
+            "text": msg.text,
+            "media_url": msg.media.url if msg.media else None,
+        }
+        for msg in messages
+    ]
+
+    return JsonResponse({"success": True, "messages": messages_data})
 # --- New Views for Group Messaging ---
 
 @login_required
@@ -149,28 +201,35 @@ def group_detail_view(request, group_id):
         "messages": messages,
         "message_form": message_form,
     })
-
 @login_required
 def send_group_message(request, group_id):
-    """Send a message in a group."""
     group = get_object_or_404(Group, id=group_id)
     if request.method == "POST" and request.user in group.members.all():
-        form = GroupMessageForm(request.POST)
-        if form.is_valid():
-            group_message = form.save(commit=False)
-            group_message.group = group
-            group_message.sender = request.user
-            group_message.save()
-            return JsonResponse({
-                "success": True,
-                "message": {
-                    "id": group_message.id,
-                    "text": group_message.text,
-                    "timestamp": group_message.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
-                    "sender": group_message.sender.username,
-                }
-            })
+        text = request.POST.get("text", "").strip()
+        media = request.FILES.get("media")  # Get uploaded file
+
+        if not text and not media:
+            return JsonResponse({"success": False, "error": "Message cannot be empty"}, status=400)
+
+        group_message = GroupMessage.objects.create(
+            group=group,
+            sender=request.user,
+            text=text if text else None,
+            media=media if media else None
+        )
+
+        return JsonResponse({
+            "success": True,
+            "message": {
+                "id": group_message.id,
+                "text": group_message.text or "",
+                "media_url": group_message.media.url if group_message.media else None,
+                "timestamp": group_message.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+                "sender": group_message.sender.username,
+            }
+        })
     return JsonResponse({"success": False, "error": "Invalid request"}, status=400)
+
 
 @login_required
 def join_group(request, group_id):
@@ -197,22 +256,22 @@ def delete_group(request, group_id):
 
 @login_required
 def fetch_group_messages(request, group_id):
-    """
-    Return new group messages posted after the given last_message_id.
-    """
     group = get_object_or_404(Group, id=group_id)
-    # Optional: Ensure the user is a member of this group.
+
     if request.user not in group.members.all():
         return JsonResponse({"messages": []})
         
     last_message_id = int(request.GET.get("last_message_id", 0))
     new_messages = group.messages.filter(id__gt=last_message_id).order_by("timestamp")
+
     messages_data = [{
         "id": msg.id,
-        "text": msg.text,
+        "text": msg.text or "",
+        "media_url": msg.media.url if msg.media else None,
         "timestamp": msg.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
         "sender": msg.sender.username,
     } for msg in new_messages]
+
     return JsonResponse({"messages": messages_data})
 
 

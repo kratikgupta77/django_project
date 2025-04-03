@@ -1,11 +1,10 @@
 from pathlib import Path
 import os
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECURE_CROSS_ORIGIN_OPENER_POLICY = None  # Disables COOP
+SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "your-default-secret-key")
 
-SECRET_KEY = 'django-insecure-j=r449(yv)q(m^&t@uk!!30kw)jl+&i*jgh8k1^*eoy40r^#+w'
+SECURE_CROSS_ORIGIN_OPENER_POLICY = None  # Disables COOP
 
 DEBUG = True
 
@@ -14,7 +13,8 @@ ALLOWED_HOSTS = ['192.168.2.246', 'localhost', '127.0.0.1','*']
 
 FIELD_ENCRYPTION_KEY = os.getenv("FIELD_ENCRYPTION_KEY") # secured private key
 
-
+MEDIA_URL = "/media/"
+MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 # Application definition
 INSTALLED_APPS = [
     'daphne',
@@ -23,7 +23,7 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
-    'django.contrib.staticfiles',
+    # 'django.contrib.staticfiles',
     'accounts',
     'channels',
     'chat',
@@ -31,6 +31,9 @@ INSTALLED_APPS = [
     'django_extensions',
     'profile_app',
     'p2pmarketplace',
+    "django.contrib.staticfiles",
+    "django.contrib.sites",
+    # "django_cleanup",  # Auto-delete unused media files
 ]
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',

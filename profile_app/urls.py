@@ -1,4 +1,6 @@
 from django.urls import path
+from django.conf import settings
+from django.conf.urls.static import static
 from .views import (
     profile_view, messages_view, logout_view, send_message, fetch_messages, update_public_key,
     group_list_view, create_group, group_detail_view, send_group_message, fetch_group_messages,
@@ -23,3 +25,6 @@ urlpatterns = [
     path("groups/<int:group_id>/leave/", leave_group, name="leave_group"),
     path("groups/<int:group_id>/delete/", delete_group, name="delete_group"),
 ]
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
