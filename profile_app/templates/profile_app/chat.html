@@ -13,15 +13,30 @@
         </ul>
     </div>
 
-    <div class="chat-box">
-        <div id="chat-messages">
-            {% for message in messages %}
-                <p data-id="{{ message.id }}"><b>{{ message.sender.username }}:</b> {{ message.text }}</p>
-            {% endfor %}
-        </div>
+    <div class="chat-box" id="chat-messages">
+        {% for message in messages %}
+        <p data-id="{{ message.id }}">
+            <b>{{ message.sender.username }}:</b> {{ message.text }}
+            {% if message.media %}
+                <br>
+                {% with ext=message.media.url|lower|slice:"-4:" %}
+                    {% if ext == ".jpg" or ext == ".jpeg" or ext == ".png" or ext == ".gif" %}
+                        <img src="{{ message.media.url }}" style="width: 200px;">
+                    {% elif ext == ".mp4" or ext == "webm" or ext == ".ogg" %}
+                        <video src="{{ message.media.url }}" controls style="width: 250px;"></video>
+                    {% else %}
+                        <a href="{{ message.media.url }}" target="_blank">Download File</a>
+                    {% endif %}
+                {% endwith %}
+            {% endif %}
+        </p>
+        {% endfor %}
+    </div>
 
-        <div class="chat-input">
-            <input type="text" id="chat-message-input" placeholder="Type a message..." autocomplete="off">
+    <div class="chat-input">
+        <input type="text" id="chat-message-input" placeholder="Type a message..." autocomplete="off">
+        <input type="file" id="chat-file-input" accept="image/*,video/*">
+        <div class="button-container">
             <button id="chat-message-submit">Send</button>
         </div>
     </div>
@@ -29,202 +44,230 @@
 
 <script>
     async function generateKeys() {
-    if (!window.crypto || !window.crypto.subtle) {
-        alert("Your browser does not support Web Crypto API.");
-        return;
-    }
+        if (!window.crypto || !window.crypto.subtle) {
+            alert("Your browser does not support Web Crypto API.");
+            return;
+        }
 
-    // Generate RSA key pair
-    const keyPair = await window.crypto.subtle.generateKey(
-        {
-            name: "RSA-OAEP",
-            modulusLength: 2048,
-            publicExponent: new Uint8Array([1, 0, 1]),
-            hash: "SHA-256",
-        },
-        true,
-        ["encrypt", "decrypt"]
-    );
+        // Generate RSA key pair
+        const keyPair = await window.crypto.subtle.generateKey(
+            {
+                name: "RSA-OAEP",
+                modulusLength: 2048,
+                publicExponent: new Uint8Array([1, 0, 1]),
+                hash: "SHA-256",
+            },
+            true,
+            ["encrypt", "decrypt"]
+        );
 
-    // Export Public Key
-    const publicKey = await window.crypto.subtle.exportKey("spki", keyPair.publicKey);
-    const publicKeyBase64 = btoa(String.fromCharCode(...new Uint8Array(publicKey)));
+        // Export Public Key
+        const publicKey = await window.crypto.subtle.exportKey("spki", keyPair.publicKey);
+        const publicKeyBase64 = btoa(String.fromCharCode(...new Uint8Array(publicKey)));
 
-    // Export Private Key (Store in IndexedDB or SessionStorage)
-    const privateKey = await window.crypto.subtle.exportKey("pkcs8", keyPair.privateKey);
-    const privateKeyBase64 = btoa(String.fromCharCode(...new Uint8Array(privateKey)));
+        // Export Private Key (Store in IndexedDB or SessionStorage)
+        const privateKey = await window.crypto.subtle.exportKey("pkcs8", keyPair.privateKey);
+        const privateKeyBase64 = btoa(String.fromCharCode(...new Uint8Array(privateKey)));
 
-    sessionStorage.setItem("privateKey", privateKeyBase64);  // Save private key (Not in DB!)
+        sessionStorage.setItem("privateKey", privateKeyBase64);  // Save private key (Not in DB!)
 
-    // Send public key to server
-    fetch("/profile/update_public_key/", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "X-CSRFToken": getCSRFToken(),
-        },
-        body: JSON.stringify({ public_key: publicKeyBase64 }),
-    });
-}
-
-// Run on first login
-if (!sessionStorage.getItem("privateKey")) {
-    generateKeys();
-}
-
-// Function to Get CSRF Token
-function getCSRFToken() {
-    return document.cookie.split("; ")
-        .find(row => row.startsWith("csrftoken="))
-        ?.split("=")[1];
-}
-
-document.addEventListener("DOMContentLoaded", () => {
-    const chatBox = document.getElementById("chat-messages");
-    const messageInput = document.getElementById("chat-message-input");
-    const sendBtn = document.getElementById("chat-message-submit");
-
-    let selectedReceiver = new URLSearchParams(window.location.search).get("receiver");
-    if (!selectedReceiver) {
-        alert("Select a user to start chatting.");
-        return;
-    }
-
-    let lastMessageId = 0;
-
-    // Send message via AJAX
-    sendBtn.addEventListener("click", async () => {
-        const text = messageInput.value.trim();
-        if (!text) return;
-
-        const response = await fetch("{% url 'send_message' %}", {
+        // Send public key to server
+        fetch("/profile/update_public_key/", {
             method: "POST",
             headers: {
-                "X-CSRFToken": "{{ csrf_token }}",
-                "Content-Type": "application/x-www-form-urlencoded",
+                "Content-Type": "application/json",
+                "X-CSRFToken": getCSRFToken(),
             },
-            body: `receiver=${selectedReceiver}&text=${encodeURIComponent(text)}`,
+            body: JSON.stringify({ public_key: publicKeyBase64 }),
         });
+    }
 
-        const result = await response.json();
-        if (result.success) {
-            addMessageToUI(result.message);
+    // Run on first login
+    if (!sessionStorage.getItem("privateKey")) {
+        generateKeys();
+    }
+
+    // Function to Get CSRF Token
+    function getCSRFToken() {
+        return document.cookie.split("; ")
+            .find(row => row.startsWith("csrftoken="))
+            ?.split("=")[1];
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+        const chatBox = document.getElementById("chat-messages");
+        const messageInput = document.getElementById("chat-message-input");
+        const fileInput = document.getElementById("chat-file-input");
+        const sendBtn = document.getElementById("chat-message-submit");
+
+        let selectedReceiver = new URLSearchParams(window.location.search).get("receiver");
+        if (!selectedReceiver) {
+            alert("Select a user to start chatting.");
+            return;
         }
 
-        messageInput.value = "";
+        let lastMessageId = 0;
+
+        // Function to add message to UI
+        function addMessageToUI(message) {
+            let messageElement = document.createElement("p");
+            messageElement.setAttribute("data-id", message.id);
+            messageElement.innerHTML = `<b>${message.sender}:</b> ${message.text}`;
+
+            // Check if media exists
+            if (message.media_url) {
+                let mediaElement;
+                if (/\.(jpg|jpeg|png|gif)$/i.test(message.media_url)) {
+                    mediaElement = document.createElement("img");
+                    mediaElement.src = message.media_url;
+                    mediaElement.style.width = "200px";
+                } else if (/\.(mp4|webm|ogg)$/i.test(message.media_url)) {
+                    mediaElement = document.createElement("video");
+                    mediaElement.src = message.media_url;
+                    mediaElement.controls = true;
+                    mediaElement.style.width = "250px";
+                } else {
+                    mediaElement = document.createElement("a");
+                    mediaElement.href = message.media_url;
+                    mediaElement.innerText = "Download File";
+                    mediaElement.target = "_blank";
+                }
+                messageElement.appendChild(document.createElement("br"));
+                messageElement.appendChild(mediaElement);
+            }
+            chatBox.appendChild(messageElement);
+        }
+
+        // Fetch new messages periodically
+        async function fetchNewMessages() {
+            const response = await fetch(`{% url 'fetch_messages' %}?receiver=${selectedReceiver}&last_message_id=${lastMessageId}`);
+            const result = await response.json();
+            result.messages.forEach((message) => {
+                if (document.querySelector(`[data-id="${message.id}"]`)) return;
+                addMessageToUI(message);
+                lastMessageId = Math.max(lastMessageId, message.id);  
+            });
+        }
+
+        setInterval(fetchNewMessages, 2000);
+
+        sendBtn.addEventListener("click", async () => {
+            const text = messageInput.value.trim();
+            const file = fileInput.files[0];
+            if (!selectedReceiver) {
+                return alert("No receiver selected.");
+            }
+            if (!text && !file) return;  
+
+            let formData = new FormData();
+            formData.append("receiver", selectedReceiver);
+            formData.append("text", text);
+            if (file) {
+                formData.append("media", file);
+            }
+
+            const response = await fetch("{% url 'send_message' %}", {
+                method: "POST",
+                headers: {
+                    "X-CSRFToken": "{{ csrf_token }}",
+                },
+                body: formData,
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                addMessageToUI(result.message);
+            } else {
+                console.error(result.error);
+            }
+            // Clear inputs
+            messageInput.value = "";
+            fileInput.value = "";
+        });
     });
 
-    // Function to add message to UI
-    function addMessageToUI(message) {
-        chatBox.innerHTML += `<p data-id="${message.id}"><b>${message.sender}:</b> ${message.text}</p>`;
-        lastMessageId = message.id; // Update last seen message ID
-    }
+    async function encryptMessage(plainText, receiverUsername) {
+        console.log("Plain Text Before Encryption:", plainText);  // Debug
 
-    // Fetch new messages periodically
-    async function fetchNewMessages() {
-        const response = await fetch(`{% url 'fetch_messages' %}?receiver=${selectedReceiver}&last_message_id=${lastMessageId}`);
-        const result = await response.json();
+        const response = await fetch(`/profile/get_public_key/${receiverUsername}/`);
+        const data = await response.json();
 
-        result.messages.forEach((message) => {
-            if (document.querySelector(`[data-id="${message.id}"]`)) return; // Skip duplicates
-            addMessageToUI(message);
-        });
-    }
-
-    // Fetch new messages every 2 seconds
-    setInterval(fetchNewMessages, 2000);
-});
-async function encryptMessage(plainText, receiverUsername) {
-    console.log("🔵 Plain Text Before Encryption:", plainText);  // Debug
-
-    const response = await fetch(`/profile/get_public_key/${receiverUsername}/`);
-    const data = await response.json();
-
-    if (!data.public_key) {
-        alert("Receiver has no public key!");
-        return null;
-    }
-
-    const publicKeyBinary = Uint8Array.from(atob(data.public_key), c => c.charCodeAt(0));
-    const publicKey = await window.crypto.subtle.importKey(
-        "spki",
-        publicKeyBinary,
-        { name: "RSA-OAEP", hash: "SHA-256" },
-        true,
-        ["encrypt"]
-    );
-
-    const encoder = new TextEncoder();
-    const encrypted = await window.crypto.subtle.encrypt({ name: "RSA-OAEP" }, publicKey, encoder.encode(plainText));
-
-    const encryptedBase64 = btoa(String.fromCharCode(...new Uint8Array(encrypted)));
-    console.log("🟢 Encrypted Message (Base64):", encryptedBase64);  // Debug
-
-    return encryptedBase64;
-}
-
-    
-    document.querySelector("#chat-message-submit").onclick = async function () {
-        const messageInput = document.querySelector("#chat-message-input");
-        const message = messageInput.value;
-        const receiverUsername = "{{ selected_user.username }}";  // Assuming you have selected user
-    
-        const encryptedMessage = await encryptMessage(message, receiverUsername);
-        if (encryptedMessage) {
-            socket.send(JSON.stringify({
-                "message": encryptedMessage,
-                "username": "{{ request.user.username }}"
-            }));
+        if (!data.public_key) {
+            alert("Receiver has no public key!");
+            return null;
         }
-        messageInput.value = "";
-    };
+
+        const publicKeyBinary = Uint8Array.from(atob(data.public_key), c => c.charCodeAt(0));
+        const publicKey = await window.crypto.subtle.importKey(
+            "spki",
+            publicKeyBinary,
+            { name: "RSA-OAEP", hash: "SHA-256" },
+            true,
+            ["encrypt"]
+        );
+
+        const encoder = new TextEncoder();
+        const encrypted = await window.crypto.subtle.encrypt({ name: "RSA-OAEP" }, publicKey, encoder.encode(plainText));
+
+        const encryptedBase64 = btoa(String.fromCharCode(...new Uint8Array(encrypted)));
+        console.log("Encrypted Message (Base64):", encryptedBase64);  // Debug
+
+        return encryptedBase64;
+    }
+
     async function decryptMessage(encryptedText) {
-    console.log("🟠 Received Encrypted Message:", encryptedText);  // Debug
+        console.log("Received Encrypted Message:", encryptedText);  // Debug
 
-    const privateKeyBase64 = sessionStorage.getItem("privateKey");
-    if (!privateKeyBase64) {
-        alert("Private key not found!");
-        return null;
+        const privateKeyBase64 = sessionStorage.getItem("privateKey");
+        if (!privateKeyBase64) {
+            alert("Private key not found!");
+            return null;
+        }
+
+        const privateKeyBinary = Uint8Array.from(atob(privateKeyBase64), c => c.charCodeAt(0));
+        const privateKey = await window.crypto.subtle.importKey(
+            "pkcs8",
+            privateKeyBinary,
+            { name: "RSA-OAEP", hash: "SHA-256" },
+            true,
+            ["decrypt"]
+        );
+
+        const encryptedBinary = Uint8Array.from(atob(encryptedText), c => c.charCodeAt(0));
+
+        try {
+            const decrypted = await window.crypto.subtle.decrypt({ name: "RSA-OAEP" }, privateKey, encryptedBinary);
+            const decryptedText = new TextDecoder().decode(decrypted);
+            console.log("Decrypted Message:", decryptedText);  // Debug
+            return decryptedText;
+        } catch (e) {
+            console.error("Decryption Failed:", e);
+            return null;
+        }
     }
+    const socket = new WebSocket(`wss://${window.location.host}/ws/chat/{{ selected_user.id }}/`);
 
-    const privateKeyBinary = Uint8Array.from(atob(privateKeyBase64), c => c.charCodeAt(0));
-    const privateKey = await window.crypto.subtle.importKey(
-        "pkcs8",
-        privateKeyBinary,
-        { name: "RSA-OAEP", hash: "SHA-256" },
-        true,
-        ["decrypt"]
-    );
-
-    const encryptedBinary = Uint8Array.from(atob(encryptedText), c => c.charCodeAt(0));
-
-    try {
-        const decrypted = await window.crypto.subtle.decrypt({ name: "RSA-OAEP" }, privateKey, encryptedBinary);
-        const decryptedText = new TextDecoder().decode(decrypted);
-        console.log("🟣 Decrypted Message:", decryptedText);  // Debug
-        return decryptedText;
-    } catch (e) {
-        console.error("❌ Decryption Failed:", e);
-        return null;
-    }
-}
-
-    
+    // Ensure your websocket (socket) is correctly initialized before using it.
     socket.onmessage = async function (event) {
         const data = JSON.parse(event.data);
         const decryptedMessage = await decryptMessage(data.message);
-    
         if (decryptedMessage) {
-            document.querySelector("#chat-log").innerHTML += `<p><b>${data.username}:</b> ${decryptedMessage}</p>`;
+            const chatBox = document.getElementById("chat-messages");
+            let messageHTML = `<p data-id="${data.id}"><b>${data.username}:</b> ${decryptedMessage}</p>`;
+            chatBox.innerHTML += messageHTML;
         }
     };
-    </script>
-        
+</script>
+    
 <style>
-.chat-container { display: flex; }
-.chat-sidebar { width: 25%; padding: 10px; border-right: 1px solid #ccc; }
-.chat-box { flex-grow: 1; padding: 10px; }
-.chat-input { display: flex; gap: 10px; margin-top: 10px; }
-.chat-input input { flex-grow: 1; padding: 5px; }
-</style>
-{% endblock %}
+    .chat-container { display: flex; }
+    .chat-sidebar { width: 25%; padding: 10px; border-right: 1px solid #ccc; }
+    .chat-box { flex-grow: 1; padding: 10px; }
+    .chat-input { display: flex; gap: 10px; margin-top: 10px; }
+    .chat-input input { flex-grow: 1; padding: 5px; }
+    </style>
+            
+
+
+
+            {% endblock %}

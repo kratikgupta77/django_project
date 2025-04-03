@@ -30,7 +30,7 @@ class ProfileUpdateForm(forms.ModelForm):
 class MessageForm(forms.ModelForm):
     class Meta:
         model = Message
-        fields = ["text"]  
+        fields = ["text", "media"]  
 
 # --- New Forms for Group Messaging ---
 
@@ -42,4 +42,4 @@ class GroupForm(forms.ModelForm):
 class GroupMessageForm(forms.ModelForm):
     class Meta:
         model = GroupMessage
-        fields = ['text']
+        fields = ['text', 'media']

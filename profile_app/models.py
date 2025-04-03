@@ -2,7 +2,6 @@ from django.db import models
 from django.contrib.auth.models import User
 from encrypted_model_fields.fields import EncryptedTextField
 
-# Existing models...
 class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     first_name = models.CharField(max_length=30, blank=True, null=True)
@@ -14,16 +13,18 @@ class UserProfile(models.Model):
         return self.user.username
 
 class Message(models.Model):
-    sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_messages')
-    receiver = models.ForeignKey(User, on_delete=models.CASCADE, related_name='received_messages')
-    text = EncryptedTextField()  # encrypts message text
-    timestamp = models.DateTimeField(auto_now_add=True) 
+    sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name="sent_messages")
+    receiver = models.ForeignKey(User, on_delete=models.CASCADE, related_name="received_messages")
+    text = models.TextField(blank=True, null=True)
+    media = models.FileField(upload_to="uploads/", blank=True, null=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
+
 
     class Meta:
         ordering = ['-timestamp']
-    
+
     def __str__(self):
-        return f"{self.sender.username}: {self.text}"
+        return f"{self.sender.username}: {self.text[:20]}"
 
 # --- New Group Messaging Models ---
 
@@ -40,6 +41,7 @@ class GroupMessage(models.Model):
     group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name='messages')
     sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='group_messages')
     text = models.TextField()  # plain text for now (encryption skipped)
+    media = models.FileField(upload_to="messages/media/", blank=True, null=True)
     timestamp = models.DateTimeField(auto_now_add=True)
 
     class Meta:
