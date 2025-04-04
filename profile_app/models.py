@@ -15,8 +15,8 @@ class UserProfile(models.Model):
 class Message(models.Model):
     sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name="sent_messages")
     receiver = models.ForeignKey(User, on_delete=models.CASCADE, related_name="received_messages")
-    text = models.TextField(blank=True, null=True)
-    media = models.FileField(upload_to="uploads/", blank=True, null=True)
+    text = EncryptedTextField(blank=True, null=True)  # encrypted text field
+    media = models.FileField(blank=True, null=True)
     timestamp = models.DateTimeField(auto_now_add=True)
 
 

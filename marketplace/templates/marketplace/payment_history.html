@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Payment History</title>
+</head>
+<body>
+    <h1>Payment History</h1>
+    {% if transactions %}
+        <ul>
+            {% for tx in transactions %}
+                <li>
+                    {{ tx.created_at }}: {{ tx.artifact.title }} - ${{ tx.amount }} - {{ tx.status }}
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>No payment transactions found.</p>
+    {% endif %}
+    <p><a href="{% url 'marketplace:marketplace_home' %}">Back to Marketplace Home</a></p>
+</body>
+</html>

@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Buy an Item</title>
+</head>
+<body>
+    <!-- Display user wallet balance -->
+{% if user.is_authenticated %}
+<p>Your Balance: ${{ user.userprofile.wallet.get_balance }}</p>
+{% endif %}
+
+<!-- Display artifacts -->
+{% for artifact in artifacts %}
+<div>
+    <h3>{{ artifact.title }}</h3>
+    <p>{{ artifact.description }}</p>
+    <p>Price: ${{ artifact.bidding_price }}</p>
+
+    {% if artifact.sold %}
+        <p style="color: red; font-weight: bold;">SOLD OUT</p>
+    {% else %}
+        <a href="{% url 'marketplace:simulate_payment' artifact.pk %}">Buy Now</a>
+    {% endif %}
+</div>
+{% endfor %}
+
+    <h1>Available Items</h1>
+    <form method="get">
+        <input type="text" name="q" placeholder="Search..." value="{{ query|default:'' }}">
+        <button type="submit">Search</button>
+    </form>
+    <ul>
+        {% for artifact in artifacts %}
+            <li>
+                <a href="{% url 'marketplace:artifact_detail' artifact.pk %}">
+                    {{ artifact.title }} - ${{ artifact.bidding_price }}
+                </a>
+            </li>
+        {% empty %}
+            <li>No artifacts found.</li>
+        {% endfor %}
+    </ul>
+    <p><a href="{% url 'marketplace:marketplace_home' %}">Back to Marketplace Home</a></p>
+</body>
+</html>

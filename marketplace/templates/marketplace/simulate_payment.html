@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Simulate Payment for {{ artifact.title }}</title>
+</head>
+<body>
+    <h1>Payment for {{ artifact.title }}</h1>
+    <p>Price: ${{ artifact.bidding_price }}</p>
+    {% if error %}
+        <p style="color:red;">{{ error }}</p>
+    {% endif %}
+    <form method="post">
+        {% csrf_token %}
+        <button type="submit">Confirm Purchase</button>
+    </form>
+    <p><a href="{% url 'marketplace:artifact_detail' artifact.pk %}">Back to Item Details</a></p>
+</body>
+</html>

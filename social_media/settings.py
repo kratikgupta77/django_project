@@ -31,6 +31,7 @@ INSTALLED_APPS = [
     'django_extensions',
     'profile_app',
     'p2pmarketplace',
+    'marketplace',  
     "django.contrib.staticfiles",
     "django.contrib.sites",
     # "django_cleanup",  # Auto-delete unused media files
