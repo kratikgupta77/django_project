@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Sell Your Item</title>
+</head>
+<body>
+    <h1>List Your Item for Sale</h1>
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">List Item</button>
+    </form>
+    <p><a href="{% url 'marketplace:marketplace_home' %}">Back to Marketplace Home</a></p>
+</body>
+</html>

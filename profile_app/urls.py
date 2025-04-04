@@ -1,11 +1,9 @@
 from django.urls import path
 from django.conf import settings
 from django.conf.urls.static import static
-from .views import (
-    profile_view, messages_view, logout_view, send_message, fetch_messages, update_public_key,
+from .views import (profile_view, messages_view, logout_view, send_message, fetch_messages, update_public_key,
     group_list_view, create_group, group_detail_view, send_group_message, fetch_group_messages,
-    join_group, leave_group, delete_group
-)
+    join_group, leave_group, delete_group)
 
 urlpatterns = [
     path("profile/", profile_view, name="profile_view"),

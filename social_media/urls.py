@@ -15,6 +15,7 @@ urlpatterns = [
     path('profile/', include("profile_app.urls")), 
     path('chat/', include("chat.urls")), 
     path('p2pmarketplace/', include("p2pmarketplace.urls")), 
+    path('marketplace/', include("marketplace.urls")), 
     path('admin/', admin.site.urls), 
 ]
 

@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ artifact.title }}</title>
+</head>
+<body>
+    <h1>{{ artifact.title }}</h1>
+    {% if artifact.image %}
+        <img src="{{ artifact.image.url }}" alt="{{ artifact.title }}" width="300">
+    {% endif %}
+    <p>{{ artifact.description }}</p>
+    <p>Price: ${{ artifact.bidding_price }}</p>
+    <p>Seller: {{ artifact.seller.user.username }}</p>
+    <a href="{% url 'marketplace:simulate_payment' artifact.pk %}">Buy Now</a>
+    <p><a href="{% url 'marketplace:artifact_list' %}">Back to Items List</a></p>
+</body>
+</html>
