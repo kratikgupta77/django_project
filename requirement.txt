@@ -1,0 +1,10 @@
+Django>=3.2,<5.0
+daphne>=3.0.2
+asgiref>=3.5.0
+channels>=3.0.0
+cryptography
+django-encrypted-model-fields
+django-recaptcha
+requests
+PyJWT
+passlib
