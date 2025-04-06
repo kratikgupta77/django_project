@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: social_media
+    env: python
+    buildCommand: "./build.sh"
+    startCommand: "gunicorn social_media.wsgi:application"
+    envVars:
+      - key: DJANGO_SETTINGS_MODULE
+        value: social_media.settings
+      - key: SECRET_KEY
+        value: your-secret-key
+      - key: DEBUG
+        value: "False"
+      - key: ALLOWED_HOSTS
+        value: your-app.onrender.com
