@@ -24,7 +24,7 @@ daphne==3.0.2
 dbus-python==1.2.18
 distro==1.7.0
 ecdsa==0.18.0b1
-flatbuffers===1.12.1-git20200711.33e2d80-dfsg1-0.6
+# flatbuffers===1.12.1-git20200711.33e2d80-dfsg1-0.6
 gyp==0.1
 httplib2==0.20.2
 hyperlink==21.0.0
