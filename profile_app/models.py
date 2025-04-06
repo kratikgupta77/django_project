@@ -12,24 +12,19 @@ class UserProfile(models.Model):
     def __str__(self):
         return self.user.username
 
-from django.db import models
-from django.contrib.auth.models import User
-from encrypted_model_fields.fields import EncryptedTextField
-
 class Message(models.Model):
     sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name="sent_messages")
     receiver = models.ForeignKey(User, on_delete=models.CASCADE, related_name="received_messages")
     text = EncryptedTextField(blank=True, null=True)
-    media = models.BinaryField(blank=True, null=True)  # Store encrypted binary data
+    media = models.FileField(upload_to='messages/media/', blank=True, null=True)  # Store encrypted binary data
     timestamp = models.DateTimeField(auto_now_add=True)
+
 
     class Meta:
         ordering = ['-timestamp']
 
     def __str__(self):
         return f"{self.sender.username}: {self.text[:20]}"
-
-
 
 # --- New Group Messaging Models ---
 
@@ -45,7 +40,7 @@ class Group(models.Model):
 class GroupMessage(models.Model):
     group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name='messages')
     sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='group_messages')
-    text = models.TextField()  # plain text for now (encryption skipped)
+    text = EncryptedTextField() # plain text for now (encryption skipped)
     media = models.FileField(upload_to="messages/media/", blank=True, null=True)
     timestamp = models.DateTimeField(auto_now_add=True)
 

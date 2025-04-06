@@ -1,12 +1,13 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="chat-container">
+    <h2>Chat</h2>
     <div class="chat-sidebar">
         <h3>Users</h3>
         <ul>
             {% for user in users %}
                 <li>
-                    <a href="?receiver={{ user.id }}" class="user-link" data-user="{{ user.id }}" data-username="{{ user.username }}">{{ user.username }}</a>
+                    <a href="?receiver={{ user.id }}" class="user-link" data-user="{{ user.id }}">{{ user.username }}</a>
                 </li>
             {% endfor %}
         </ul>
@@ -14,21 +15,21 @@
 
     <div class="chat-box" id="chat-messages">
         {% for message in messages %}
-            <p data-id="{{ message.id }}">
-                <b>{{ message.sender.username }}:</b> {{ message.text }}
-                {% if message.media %}
-                    <br>
-                    {% with ext=message.media.url|lower|slice:"-4:" %}
-                        {% if ext == ".jpg" or ext == ".jpeg" or ext == ".png" or ext == ".gif" %}
-                            <img src="{{ message.media.url }}" style="width: 200px;">
-                        {% elif ext == ".mp4" or ext == "webm" or ext == ".ogg" %}
-                            <video src="{{ message.media.url }}" controls style="width: 250px;"></video>
-                        {% else %}
-                            <a href="{{ message.media.url }}" target="_blank">Download File</a>
-                        {% endif %}
-                    {% endwith %}
-                {% endif %}
-            </p>
+        <p data-id="{{ message.id }}">
+            <b>{{ message.sender.username }}:</b> {{ message.text }}
+            {% if message.media %}
+                <br>
+                {% with ext=message.media.url|lower|slice:"-4:" %}
+                    {% if ext == ".jpg" or ext == ".jpeg" or ext == ".png" or ext == ".gif" %}
+                        <img src="{{ message.media.url }}" style="width: 200px;">
+                    {% elif ext == ".mp4" or ext == "webm" or ext == ".ogg" %}
+                        <video src="{{ message.media.url }}" controls style="width: 250px;"></video>
+                    {% else %}
+                        <a href="{{ message.media.url }}" target="_blank">Download File</a>
+                    {% endif %}
+                {% endwith %}
+            {% endif %}
+        </p>
         {% endfor %}
     </div>
 
@@ -36,19 +37,19 @@
         <input type="text" id="chat-message-input" placeholder="Type a message..." autocomplete="off">
         <input type="file" id="chat-file-input" accept="image/*,video/*">
         <div class="button-container">
-            <button id="chat-message-submit" class="btn">Send</button>
+            <button id="chat-message-submit">Send</button>
         </div>
     </div>
 </div>
 
 <script>
-    // ---------- PKI Setup: Generate & Store Keys using IndexedDB ----------
     async function generateKeys() {
         if (!window.crypto || !window.crypto.subtle) {
-            alert("Your browser does not support the Web Crypto API.");
+            alert("Your browser does not support Web Crypto API.");
             return;
         }
-        // Generate RSA-OAEP key pair
+
+        // Generate RSA key pair
         const keyPair = await window.crypto.subtle.generateKey(
             {
                 name: "RSA-OAEP",
@@ -60,80 +61,46 @@
             ["encrypt", "decrypt"]
         );
 
-        // Export public key in SPKI format and convert to PEM
-        const publicKeyBuffer = await window.crypto.subtle.exportKey("spki", keyPair.publicKey);
-        const publicKeyString = String.fromCharCode(...new Uint8Array(publicKeyBuffer));
-        const publicKeyBase64 = btoa(publicKeyString);
-        const pemPublicKey = `-----BEGIN PUBLIC KEY-----\n${publicKeyBase64.match(/.{1,64}/g).join("\n")}\n-----END PUBLIC KEY-----`;
+        // Export Public Key
+        const publicKey = await window.crypto.subtle.exportKey("spki", keyPair.publicKey);
+        const publicKeyBase64 = btoa(String.fromCharCode(...new Uint8Array(publicKey)));
+
+        // Export Private Key (Store in IndexedDB or SessionStorage)
+        const privateKey = await window.crypto.subtle.exportKey("pkcs8", keyPair.privateKey);
+        const privateKeyBase64 = btoa(String.fromCharCode(...new Uint8Array(privateKey)));
+
+        sessionStorage.setItem("privateKey", privateKeyBase64);  // Save private key (Not in DB!)
 
         // Send public key to server
-        await fetch("/profile/update_public_key/", {
+        fetch("/profile/update_public_key/", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
                 "X-CSRFToken": getCSRFToken(),
             },
-            body: JSON.stringify({ public_key: pemPublicKey })
-        });
-
-        // Store private key securely in IndexedDB
-        const db = await openKeyDB();
-        const tx = db.transaction("keys", "readwrite");
-        tx.objectStore("keys").put(keyPair.privateKey, "privateKey");
-        await tx.complete;
-        console.log("Key pair generated and stored.");
-    }
-
-    // IndexedDB helper function
-    function openKeyDB() {
-        return new Promise((resolve, reject) => {
-            const request = indexedDB.open("SecureKeysDB", 1);
-            request.onupgradeneeded = function(event) {
-                const db = event.target.result;
-                db.createObjectStore("keys");
-            };
-            request.onsuccess = () => resolve(request.result);
-            request.onerror = () => reject(request.error);
+            body: JSON.stringify({ public_key: publicKeyBase64 }),
         });
     }
 
-    // Check if private key exists in IndexedDB; if not, generate key pair
-    (async function checkAndGenerateKeys() {
-        const db = await openKeyDB();
-        const tx = db.transaction("keys", "readonly");
-        const storedKey = await tx.objectStore("keys").get("privateKey");
-        if (!storedKey) {
-            await generateKeys();
-        } else {
-            console.log("Private key already exists in IndexedDB.");
-        }
-    })();
+    // Run on first login
+    if (!sessionStorage.getItem("privateKey")) {
+        generateKeys();
+    }
 
-    // ---------- Helper: Get CSRF Token ----------
+    // Function to Get CSRF Token
     function getCSRFToken() {
-        const cookieStr = document.cookie.split("; ").find(row => row.startsWith("csrftoken="));
-        return cookieStr ? cookieStr.split("=")[1] : "";
+        return document.cookie.split("; ")
+            .find(row => row.startsWith("csrftoken="))
+            ?.split("=")[1];
     }
 
-    // ---------- Chat Functionality ----------
     document.addEventListener("DOMContentLoaded", () => {
         const chatBox = document.getElementById("chat-messages");
         const messageInput = document.getElementById("chat-message-input");
         const fileInput = document.getElementById("chat-file-input");
         const sendBtn = document.getElementById("chat-message-submit");
 
-        // Assume the selected receiver is passed as a URL parameter
-        const urlParams = new URLSearchParams(window.location.search);
-        const selectedReceiver = urlParams.get("receiver");
-
-        // Get receiver username from the DOM (assuming each .user-link has data-username attribute)
-        let selectedReceiverUsername = "";
-        document.querySelectorAll(".user-link").forEach(link => {
-            if (link.getAttribute("data-user") === selectedReceiver) {
-                selectedReceiverUsername = link.getAttribute("data-username");
-            }
-        });
-
+        let selectedReceiver = new URLSearchParams(window.location.search).get("receiver");
         if (!selectedReceiver) {
             alert("Select a user to start chatting.");
             return;
@@ -141,100 +108,96 @@
 
         let lastMessageId = 0;
 
-        // Function to add a message to the UI
+        // Function to add message to UI
         function addMessageToUI(message) {
-            const p = document.createElement("p");
-            p.setAttribute("data-id", message.id);
-            p.innerHTML = `<b>${message.sender}:</b> ${message.text}`;
+            let messageElement = document.createElement("p");
+            messageElement.setAttribute("data-id", message.id);
+            messageElement.innerHTML = `<b>${message.sender}:</b> ${message.text}`;
+
+            // Check if media exists
             if (message.media_url) {
-                let mediaElem;
+                let mediaElement;
                 if (/\.(jpg|jpeg|png|gif)$/i.test(message.media_url)) {
-                    mediaElem = document.createElement("img");
-                    mediaElem.src = message.media_url;
-                    mediaElem.style.width = "200px";
+                    mediaElement = document.createElement("img");
+                    mediaElement.src = message.media_url;
+                    mediaElement.style.width = "200px";
                 } else if (/\.(mp4|webm|ogg)$/i.test(message.media_url)) {
-                    mediaElem = document.createElement("video");
-                    mediaElem.src = message.media_url;
-                    mediaElem.controls = true;
-                    mediaElem.style.width = "250px";
+                    mediaElement = document.createElement("video");
+                    mediaElement.src = message.media_url;
+                    mediaElement.controls = true;
+                    mediaElement.style.width = "250px";
                 } else {
-                    mediaElem = document.createElement("a");
-                    mediaElem.href = message.media_url;
-                    mediaElem.innerText = "Download File";
-                    mediaElem.target = "_blank";
+                    mediaElement = document.createElement("a");
+                    mediaElement.href = message.media_url;
+                    mediaElement.innerText = "Download File";
+                    mediaElement.target = "_blank";
                 }
-                p.appendChild(document.createElement("br"));
-                p.appendChild(mediaElem);
+                messageElement.appendChild(document.createElement("br"));
+                messageElement.appendChild(mediaElement);
             }
-            chatBox.appendChild(p);
+            chatBox.appendChild(messageElement);
         }
 
         // Fetch new messages periodically
         async function fetchNewMessages() {
-            const response = await fetch(`{% url 'fetch_messages' %}?peer_id=${selectedReceiver}&last_message_id=${lastMessageId}`);
-            // Check if response is valid JSON
-            const text = await response.text();
-            try {
-                const result = JSON.parse(text);
-                result.messages.forEach(message => {
-                    if (document.querySelector(`[data-id="${message.id}"]`)) return;
-                    addMessageToUI(message);
-                    lastMessageId = Math.max(lastMessageId, message.id);
-                });
-            } catch (err) {
-                console.error("Error parsing JSON:", err, text);
-            }
+            const response = await fetch(`{% url 'fetch_messages' %}?receiver=${selectedReceiver}&last_message_id=${lastMessageId}`);
+            const result = await response.json();
+            result.messages.forEach((message) => {
+                if (document.querySelector(`[data-id="${message.id}"]`)) return;
+                addMessageToUI(message);
+                lastMessageId = Math.max(lastMessageId, message.id);  
+            });
         }
+
         setInterval(fetchNewMessages, 2000);
 
-        // Send message event listener
         sendBtn.addEventListener("click", async () => {
             const text = messageInput.value.trim();
             const file = fileInput.files[0];
             if (!selectedReceiver) {
-                alert("No receiver selected.");
-                return;
+                return alert("No receiver selected.");
             }
-            // Encrypt message using recipient's public key
-            let encryptedText = text ? await encryptMessage(text, selectedReceiverUsername) : "";
-            const formData = new FormData();
+            if (!text && !file) return;  
+
+            let formData = new FormData();
             formData.append("receiver", selectedReceiver);
-            formData.append("text", encryptedText);
+            formData.append("text", text);
             if (file) {
                 formData.append("media", file);
             }
+
             const response = await fetch("{% url 'send_message' %}", {
                 method: "POST",
                 headers: {
-                    "X-CSRFToken": getCSRFToken(),
+                    "X-CSRFToken": "{{ csrf_token }}",
                 },
                 body: formData,
             });
+
             const result = await response.json();
-            if (result.status === "success") {
+            if (result.success) {
                 addMessageToUI(result.message);
             } else {
                 console.error(result.error);
             }
+            // Clear inputs
             messageInput.value = "";
             fileInput.value = "";
         });
     });
 
-    // ---------- Encryption Functions ----------
     async function encryptMessage(plainText, receiverUsername) {
-        console.log("Encrypting message for:", receiverUsername);
+        console.log("Plain Text Before Encryption:", plainText);  // Debug
+
         const response = await fetch(`/profile/get_public_key/${receiverUsername}/`);
         const data = await response.json();
+
         if (!data.public_key) {
             alert("Receiver has no public key!");
             return null;
         }
-        const publicKeyBase64 = data.public_key
-            .replace("-----BEGIN PUBLIC KEY-----", "")
-            .replace("-----END PUBLIC KEY-----", "")
-            .replace(/\n/g, "");
-        const publicKeyBinary = Uint8Array.from(atob(publicKeyBase64), c => c.charCodeAt(0));
+
+        const publicKeyBinary = Uint8Array.from(atob(data.public_key), c => c.charCodeAt(0));
         const publicKey = await window.crypto.subtle.importKey(
             "spki",
             publicKeyBinary,
@@ -242,55 +205,69 @@
             true,
             ["encrypt"]
         );
+
         const encoder = new TextEncoder();
-        const encryptedBuffer = await window.crypto.subtle.encrypt(
-            { name: "RSA-OAEP" },
-            publicKey,
-            encoder.encode(plainText)
-        );
-        const encryptedBase64 = btoa(String.fromCharCode(...new Uint8Array(encryptedBuffer)));
-        console.log("Encrypted message:", encryptedBase64);
+        const encrypted = await window.crypto.subtle.encrypt({ name: "RSA-OAEP" }, publicKey, encoder.encode(plainText));
+
+        const encryptedBase64 = btoa(String.fromCharCode(...new Uint8Array(encrypted)));
+        console.log("Encrypted Message (Base64):", encryptedBase64);  // Debug
+
         return encryptedBase64;
     }
 
     async function decryptMessage(encryptedText) {
-        const db = await openKeyDB();
-        const tx = db.transaction("keys", "readonly");
-        const privateKey = await tx.objectStore("keys").get("privateKey");
-        if (!privateKey) {
+        console.log("Received Encrypted Message:", encryptedText);  // Debug
+
+        const privateKeyBase64 = sessionStorage.getItem("privateKey");
+        if (!privateKeyBase64) {
             alert("Private key not found!");
             return null;
         }
-        const privateKeyBuffer = await window.crypto.subtle.exportKey("pkcs8", privateKey);
-        const privateKeyBinary = new Uint8Array(privateKeyBuffer);
-        const importedPrivateKey = await window.crypto.subtle.importKey(
+
+        const privateKeyBinary = Uint8Array.from(atob(privateKeyBase64), c => c.charCodeAt(0));
+        const privateKey = await window.crypto.subtle.importKey(
             "pkcs8",
             privateKeyBinary,
             { name: "RSA-OAEP", hash: "SHA-256" },
             true,
             ["decrypt"]
         );
+
         const encryptedBinary = Uint8Array.from(atob(encryptedText), c => c.charCodeAt(0));
+
         try {
-            const decryptedBuffer = await window.crypto.subtle.decrypt(
-                { name: "RSA-OAEP" },
-                importedPrivateKey,
-                encryptedBinary
-            );
-            const decryptedText = new TextDecoder().decode(decryptedBuffer);
+            const decrypted = await window.crypto.subtle.decrypt({ name: "RSA-OAEP" }, privateKey, encryptedBinary);
+            const decryptedText = new TextDecoder().decode(decrypted);
+            console.log("Decrypted Message:", decryptedText);  // Debug
             return decryptedText;
         } catch (e) {
-            console.error("Decryption failed:", e);
+            console.error("Decryption Failed:", e);
             return null;
         }
     }
-</script>
+    const socket = new WebSocket(`wss://${window.location.host}/ws/chat/{{ selected_user.id }}/`);
 
+    // Ensure your websocket (socket) is correctly initialized before using it.
+    socket.onmessage = async function (event) {
+        const data = JSON.parse(event.data);
+        const decryptedMessage = await decryptMessage(data.message);
+        if (decryptedMessage) {
+            const chatBox = document.getElementById("chat-messages");
+            let messageHTML = `<p data-id="${data.id}"><b>${data.username}:</b> ${decryptedMessage}</p>`;
+            chatBox.innerHTML += messageHTML;
+        }
+    };
+</script>
+    
 <style>
     .chat-container { display: flex; }
     .chat-sidebar { width: 25%; padding: 10px; border-right: 1px solid #ccc; }
-    .chat-box { flex-grow: 1; padding: 10px; overflow-y: auto; max-height: 500px; }
+    .chat-box { flex-grow: 1; padding: 10px; }
     .chat-input { display: flex; gap: 10px; margin-top: 10px; }
     .chat-input input { flex-grow: 1; padding: 5px; }
-</style>
-{% endblock %}
+    </style>
+            
+
+
+
+            {% endblock %}

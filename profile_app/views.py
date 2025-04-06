@@ -66,6 +66,7 @@ def update_public_key(request):
             return JsonResponse({"status": "success"})
     return JsonResponse({"error": "Invalid request"}, status=400)
 
+
 @login_required
 def profile_view(request):
     user_profile, _ = UserProfile.objects.get_or_create(user=request.user)
@@ -94,6 +95,7 @@ def logout_view(request):
     logout(request)
     return redirect("frontpage")
 
+
 @login_required
 def messages_view(request):
     users = User.objects.exclude(id=request.user.id).filter(is_active=True, is_staff=False, is_superuser=False)
@@ -112,6 +114,7 @@ def messages_view(request):
         "messages": conversation,
     }
     return render(request, "profile_app/chat.html", context)
+
 
 
 key = Fernet.generate_key()
@@ -231,69 +234,67 @@ def verify_reset_otp(request):
 
 
 
+
 @login_required
 def send_message(request):
     if request.method == "POST":
-        try:
-            print("Request POST:", request.POST)
-            print("Request FILES:", request.FILES)
+        sender = request.user
+        receiver_id = request.POST.get("receiver")
+        text = request.POST.get("text", "").strip()
+        media = request.FILES.get("media")  # This will be populated from FormData
+        
+        if not receiver_id:
+            return JsonResponse({"success": False, "error": "Receiver not specified."})
+        
+        receiver = get_object_or_404(User, id=receiver_id)
+        
+        # Create the Message instance with media if provided.
+        message = Message.objects.create(
+            sender=sender, 
+            receiver=receiver, 
+            text=text, 
+            media=media
+        )
+        
+        return JsonResponse({
+            "success": True,
+            "message": {
+                "id": message.id,
+                "sender": sender.username,
+                "text": message.text,
+                "media_url": message.media.url if message.media else None,
+            }
+        })
+    return JsonResponse({"success": False, "error": "Invalid request method."})
 
-            receiver_id = request.POST.get("receiver")
-            text = request.POST.get("text")
-            media = request.FILES.get("media")
 
-            receiver = User.objects.get(id=receiver_id)
-            message = Message.objects.create(
-                sender=request.user,
-                receiver=receiver,
-                text=text,
-                media=media,
-            )
-            return JsonResponse({
-                "status": "success",
-                "message": {
-                    "id": message.id,
-                    "sender": request.user.username,
-                    "text": message.text,
-                    "media_url": message.media.url if message.media else None
-                }
-            })
-        except Exception as e:
-            traceback.print_exc()
-            return JsonResponse({"status": "error", "error": str(e)}, status=500)
+import mimetypes
 
-
-@login_required
 def fetch_messages(request):
-    peer_id = request.GET.get("peer_id")
+    sender = request.user
+    receiver_id = request.GET.get("receiver")
+    last_message_id = request.GET.get("last_message_id", 0)
 
-    # Validate that peer_id is provided and valid
-    try:
-        peer_id = int(peer_id)
-        peer = User.objects.get(id=peer_id)
-    except (TypeError, ValueError, User.DoesNotExist):
-        return JsonResponse({"messages": [], "error": "Invalid or missing peer ID"}, status=404)
+    if not receiver_id:
+        return JsonResponse({"success": False, "error": "Receiver not specified."})
+
+    receiver = get_object_or_404(User, id=receiver_id)
 
     messages = Message.objects.filter(
-        Q(sender=request.user, receiver=peer) |
-        Q(sender=peer, receiver=request.user)
+        sender__in=[sender, receiver], receiver__in=[sender, receiver], id__gt=last_message_id
     ).order_by("timestamp")
 
-    data = []
-    for msg in messages:
-        media_content = None
-        if msg.encrypted_media_blob:
-            media_content = decrypt_and_decompress_media(msg.encrypted_media_blob).decode("latin1")
-
-        data.append({
+    messages_data = [
+        {
+            "id": msg.id,
             "sender": msg.sender.username,
             "text": msg.text,
-            "media": media_content,
-            "timestamp": msg.timestamp.isoformat()
-        })
+            "media_url": msg.media.url if msg.media else None,
+        }
+        for msg in messages
+    ]
 
-    return JsonResponse({"messages": data})
-
+    return JsonResponse({"success": True, "messages": messages_data})
 @login_required
 def group_list_view(request):
     """List all groups and groups the user is a member of."""

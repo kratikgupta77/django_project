@@ -11,10 +11,10 @@ urlpatterns = [
     path("messages/", messages_view, name="messages_view"),
     path("messages/send/", send_message, name="send_message"),
     path("messages/fetch/", fetch_messages, name="fetch_messages"),
-    path("profile/update_public_key/", update_public_key, name="update_public_key"),
+    # path("profile/update_public_key/", update_public_key, name="update_public_key"),
     path('delete-account/',send_delete_otp , name='delete_account'),
     path('confirm-delete/', verify_delete_otp, name='verify_delete_otp'),
-    path("get_public_key/<str:username>/", get_public_key, name="get_public_key"),
+    # path("get_public_key/<str:username>/", get_public_key, name="get_public_key"),
 
     # --- Group Messaging URLs ---
     path("groups/", group_list_view, name="group_list_view"),
