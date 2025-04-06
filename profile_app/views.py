@@ -1,13 +1,19 @@
+from pyexpat.errors import messages
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.contrib.auth import logout
 from django.contrib.auth.models import User
 from django.db.models import Q
-from .models import Message, UserProfile, Group, GroupMessage
-from .forms import UserUpdateForm, ProfileUpdateForm, GroupForm, GroupMessageForm
-import json
 
+from profile_app import models
+from .models import Message, UserProfile, Group, GroupMessage
+from .forms import UserUpdateForm, ProfileUpdateForm, GroupForm, GroupMessageForm,OTPVerificationForm
+import json
+from django.conf import settings
+
+import random
+from django.core.mail import send_mail
 
 
 from django.http import JsonResponse
@@ -99,67 +105,171 @@ def messages_view(request):
     return render(request, "profile_app/chat.html", context)
 
 
+import zlib
+from cryptography.fernet import Fernet
+
+key = Fernet.generate_key()
+fernet = Fernet(b'qHImXvD7qzhdQ0gB4Dj5V4T5z7NYzZ4FtZ1ucxvQjrs=')  # Use from user's key ideally
+
+def compress_and_encrypt_media(file):   
+    compressed_data = zlib.compress(file.read())
+    encrypted_data = fernet.encrypt(compressed_data)
+    return encrypted_data
+
+def decrypt_and_decompress_media(blob):
+    decrypted_data = fernet.decrypt(blob)
+    decompressed_data = zlib.decompress(decrypted_data)
+    return decompressed_data
+
+def get_public_key(request, username):
+    try:
+        user = User.objects.get(username=username)
+        profile = user.userprofile
+        return JsonResponse({'public_key': profile.public_key})
+    except User.DoesNotExist:
+        return JsonResponse({'error': 'User not found'}, status=404)
+    except UserProfile.DoesNotExist:
+        return JsonResponse({'error': 'Profile not found'}, status=404)
+
+
+
+from django.core.mail import send_mail
+from django.contrib.auth.decorators import login_required
+import random
+
 @login_required
+def send_delete_otp(request):
+    if request.method == "POST":
+        otp = ''.join([str(random.randint(0, 9)) for _ in range(6)])
+        request.session['delete_otp'] = otp
+        request.session['delete_user_id'] = request.user.id
+
+        send_mail(
+            "OTP to Delete Your Account",
+            f"Your OTP to delete your account is: {otp}",
+            settings.DEFAULT_FROM_EMAIL,
+            [request.user.email],
+            fail_silently=False,
+        )
+        return redirect('verify_delete_otp')
+
+
+from django.contrib.auth.models import User
+
+@login_required
+def verify_delete_otp(request):
+    if request.method == "POST":
+        entered_otp = request.POST.get("otp")
+        if entered_otp == request.session.get("delete_otp"):
+            try:
+                user = User.objects.get(id=request.session.get("delete_user_id"))
+                user.delete()
+                
+                # Clear session
+                request.session.pop("delete_otp", None)
+                request.session.pop("delete_user_id", None)
+
+                return redirect('login')
+            except User.DoesNotExist:
+                return render(request, "profile_app/enter_otp_delete.html", {"error": "User not found."})
+        else:
+            return render(request, "profile_app/enter_otp_delete.html", {"error": "Invalid OTP."})
+
+    return render(request, "profile_app/enter_otp_delete.html")
+
+
+
+@login_required
+def send_reset_otp(request):
+    if request.method == "POST":
+        otp = ''.join([str(random.randint(0, 9)) for _ in range(6)])
+        request.session['reset_otp'] = otp
+        request.session['otp_user_id'] = request.user.id
+        
+        send_mail(
+            "Your OTP for Password Reset",
+            f"Your OTP is: {otp}",
+            settings.DEFAULT_FROM_EMAIL,
+            [request.user.email],
+            fail_silently=False,
+        )
+        return redirect('verify_reset_otp')
+
+from django.contrib.auth.models import User
+from django.contrib.auth.hashers import make_password
+
+@login_required
+def verify_reset_otp(request):
+    if request.method == "POST":
+        entered_otp = request.POST.get("otp")
+        new_password = request.POST.get("new_password")
+        
+        if entered_otp == request.session.get("reset_otp"):
+            try:
+                user = User.objects.get(id=request.session.get("otp_user_id"))
+                user.password = make_password(new_password)
+                user.save()
+                
+                # Clear session after use
+                request.session.pop("reset_otp", None)
+                request.session.pop("otp_user_id", None)
+
+                return redirect('login')  # or wherever you want
+            except User.DoesNotExist:
+                return render(request, "profile_app/verify_otp.html", {"error": "User not found."})
+        else:
+            return render(request, "profile_app/verify_otp.html", {"error": "Invalid OTP."})
+
+    return render(request, "profile_app/verify_otp.html")
+
+
 def send_message(request):
     if request.method == "POST":
         sender = request.user
-        receiver_id = request.POST.get("receiver")
-        text = request.POST.get("text", "").strip()
-        media = request.FILES.get("media")  # This will be populated from FormData
-        
-        if not receiver_id:
-            return JsonResponse({"success": False, "error": "Receiver not specified."})
-        
-        receiver = get_object_or_404(User, id=receiver_id)
-        
-        # Create the Message instance with media if provided.
-        message = Message.objects.create(
-            sender=sender, 
-            receiver=receiver, 
-            text=text, 
-            media=media
+        receiver_id = request.POST.get("receiver_id")
+        text = request.POST.get("text")
+        media = request.FILES.get("media")
+
+        receiver = User.objects.get(id=receiver_id)
+        encrypted_blob = None
+
+        if media:
+            encrypted_blob = compress_and_encrypt_media(media)
+
+        Message.objects.create(
+            sender=sender,
+            receiver=receiver,
+            text=text,
+            encrypted_media_blob=encrypted_blob,
         )
-        
-        return JsonResponse({
-            "success": True,
-            "message": {
-                "id": message.id,
-                "sender": sender.username,
-                "text": message.text,
-                "media_url": message.media.url if message.media else None,
-            }
-        })
-    return JsonResponse({"success": False, "error": "Invalid request method."})
-
-
-import mimetypes
+        return JsonResponse({"status": "success"})
 
 def fetch_messages(request):
-    sender = request.user
-    receiver_id = request.GET.get("receiver")
-    last_message_id = request.GET.get("last_message_id", 0)
-
-    if not receiver_id:
-        return JsonResponse({"success": False, "error": "Receiver not specified."})
-
-    receiver = get_object_or_404(User, id=receiver_id)
+    user = request.user
+    peer_id = request.GET.get("peer_id")
+    peer = User.objects.get(id=peer_id)
 
     messages = Message.objects.filter(
-        sender__in=[sender, receiver], receiver__in=[sender, receiver], id__gt=last_message_id
+        models.Q(sender=user, receiver=peer) |
+        models.Q(sender=peer, receiver=user)
     ).order_by("timestamp")
 
-    messages_data = [
-        {
-            "id": msg.id,
+    data = []
+    for msg in messages:
+        media_content = None
+        if msg.encrypted_media_blob:
+            media_content = decrypt_and_decompress_media(msg.encrypted_media_blob).decode("latin1")
+            # Consider base64 encoding this if you want to show in frontend
+
+        data.append({
             "sender": msg.sender.username,
             "text": msg.text,
-            "media_url": msg.media.url if msg.media else None,
-        }
-        for msg in messages
-    ]
+            "media": media_content,
+            "timestamp": msg.timestamp.isoformat()
+        })
 
-    return JsonResponse({"success": True, "messages": messages_data})
-# --- New Views for Group Messaging ---
+    return JsonResponse({"messages": data})
+
 
 @login_required
 def group_list_view(request):

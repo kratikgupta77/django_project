@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Enter OTP to confirm </title>
+    <style>
+        /* Add styling for your OTP form and virtual keyboard here */
+        .key {
+            display: inline-block;
+            margin: 2px;
+            padding: 10px;
+            background: #ccc;
+            cursor: pointer;
+        }
+    </style>
+    <script>
+        function addDigit(d) {
+            document.getElementById("otp").value += d;
+        }
+        function clearOTP() {
+            document.getElementById("otp").value = "";
+        }
+    </script>
+</head>
+<body>
+    <h2>Enter OTP</h2>
+    <form method="POST">
+        {% csrf_token %}
+        <input type="text" id="otp" name="otp" readonly>
+        <br>
+        <div>
+            {% for digit in "1234567890" %}
+                <span class="key" onclick="addDigit('{{ digit }}')">{{ digit }}</span>
+            {% endfor %}
+            <span class="key" onclick="clearOTP()">Clear</span>
+        </div>
+        <br>
+        <input type="password" name="new_password" placeholder="New Password" required>
+        <br>
+        <button type="submit">Reset Password</button>
+    </form>
+</body>
+</html>
+    

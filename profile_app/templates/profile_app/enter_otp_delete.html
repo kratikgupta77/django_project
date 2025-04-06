@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Confirm Account Deletion</title>
+    <style>
+        .key {
+            display: inline-block;
+            margin: 2px;
+            padding: 10px;
+            background: #ccc;
+            cursor: pointer;
+        }
+    </style>
+    <script>
+        function addDigit(d) {
+            document.getElementById("otp").value += d;
+        }
+        function clearOTP() {
+            document.getElementById("otp").value = "";
+        }
+    </script>
+</head>
+<body>
+    <h2>Enter OTP to Confirm Deletion</h2>
+
+    {% if error %}
+        <p style="color: red;">{{ error }}</p>
+    {% endif %}
+
+    <form method="POST">
+        {% csrf_token %}
+        <input type="text" id="otp" name="otp" readonly required placeholder="Enter OTP">
+        <br>
+        <div>
+            {% for digit in "1234567890" %}
+                <span class="key" onclick="addDigit('{{ digit }}')">{{ digit }}</span>
+            {% endfor %}
+            <span class="key" onclick="clearOTP()">Clear</span>
+        </div>
+        <br>
+        <button type="submit" style="background-color: red; color: white;">Delete My Account</button>
+    </form>
+</body>
+</html>

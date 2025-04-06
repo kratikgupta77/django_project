@@ -4,6 +4,15 @@ from .models import UserProfile,Message
 from django import forms
 from .models import Message,Group,GroupMessage
 from django.contrib.auth.forms import UserCreationForm
+
+
+class OTPVerificationForm(forms.Form):
+    otp = forms.CharField(label="Enter OTP", max_length=6, widget=forms.TextInput(attrs={
+        'placeholder': 'Enter OTP',
+        'class': 'form-control'
+    }))
+
+
 class UserRegistrationForm(UserCreationForm):
     email = forms.EmailField(required=True)  
 
@@ -30,7 +39,7 @@ class ProfileUpdateForm(forms.ModelForm):
 class MessageForm(forms.ModelForm):
     class Meta:
         model = Message
-        fields = ["text", "media"]  
+        fields = ["text"]  
 
 # --- New Forms for Group Messaging ---
 
@@ -42,4 +51,4 @@ class GroupForm(forms.ModelForm):
 class GroupMessageForm(forms.ModelForm):
     class Meta:
         model = GroupMessage
-        fields = ['text', 'media']
+        fields = ['text']

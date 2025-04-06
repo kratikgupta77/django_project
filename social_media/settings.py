@@ -1,15 +1,34 @@
 from pathlib import Path
+from dotenv import load_dotenv
 import os
+
+load_dotenv()  # <-- this loads the .env file
+# from decouple import config
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "your-default-secret-key")
 
 SECURE_CROSS_ORIGIN_OPENER_POLICY = None  # Disables COOP
-
+ 
 DEBUG = True
 
 ALLOWED_HOSTS = ['192.168.2.246', 'localhost', '127.0.0.1','*']
 
+SITE_ID = 1 #for admin
+
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+
+
+
+RECAPTCHA_PUBLIC_KEY = os.getenv("RECAPTCHA_PUBLIC_KEY")
+RECAPTCHA_PRIVATE_KEY = os.getenv("RECAPTCHA_PRIVATE_KEY")
+RECAPTCHA_USE_SSL = True
 
 FIELD_ENCRYPTION_KEY = os.getenv("FIELD_ENCRYPTION_KEY") # secured private key
 
@@ -23,18 +42,19 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
+    'django_recaptcha',
     # 'django.contrib.staticfiles',
     'accounts',
     'channels',
     'chat',
     'social_media',
     'django_extensions',
-    'profile_app',
+    # 'profile_app',
     'p2pmarketplace',
     'marketplace',  
     "django.contrib.staticfiles",
     "django.contrib.sites",
-    # "django_cleanup",  # Auto-delete unused media files
+    'profile_app.apps.ProfileAppConfig',
 ]
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
