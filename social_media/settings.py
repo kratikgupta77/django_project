@@ -12,7 +12,7 @@ SECURE_CROSS_ORIGIN_OPENER_POLICY = None  # Disables COOP
  
 DEBUG = True
 
-ALLOWED_HOSTS = ['192.168.2.246', 'localhost', '127.0.0.1','*']
+ALLOWED_HOSTS = ['192.168.2.246', 'localhost', '127.0.0.1','*','fcs-project-wood.onrender.com']
 
 SITE_ID = 1 #for admin
 
