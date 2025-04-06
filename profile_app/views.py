@@ -1,3 +1,6 @@
+from django.core.mail import send_mail
+from django.contrib.auth.decorators import login_required
+import random
 from pyexpat.errors import messages
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
@@ -5,6 +8,9 @@ from django.http import JsonResponse
 from django.contrib.auth import logout
 from django.contrib.auth.models import User
 from django.db.models import Q
+
+import zlib
+from cryptography.fernet import Fernet
 
 from profile_app import models
 from .models import Message, UserProfile, Group, GroupMessage
@@ -15,6 +21,10 @@ from django.conf import settings
 import random
 from django.core.mail import send_mail
 
+from django.contrib.auth.models import User
+from django.contrib.auth.hashers import make_password
+from django.http import JsonResponse
+import traceback
 
 from django.http import JsonResponse
 from .models import Message
@@ -44,7 +54,6 @@ def receive_encrypted_file(request):
 
 
 
-# Existing views...
 @login_required
 def update_public_key(request):
     if request.method == "POST":
@@ -87,7 +96,7 @@ def logout_view(request):
 
 @login_required
 def messages_view(request):
-    users = User.objects.exclude(id=request.user.id)
+    users = User.objects.exclude(id=request.user.id).filter(is_active=True, is_staff=False, is_superuser=False)
     selected_user = None
     conversation = []
     receiver_id = request.GET.get("receiver")
@@ -105,9 +114,6 @@ def messages_view(request):
     return render(request, "profile_app/chat.html", context)
 
 
-import zlib
-from cryptography.fernet import Fernet
-
 key = Fernet.generate_key()
 fernet = Fernet(b'qHImXvD7qzhdQ0gB4Dj5V4T5z7NYzZ4FtZ1ucxvQjrs=')  # Use from user's key ideally
 
@@ -121,10 +127,16 @@ def decrypt_and_decompress_media(blob):
     decompressed_data = zlib.decompress(decrypted_data)
     return decompressed_data
 
+
+
 def get_public_key(request, username):
     try:
         user = User.objects.get(username=username)
         profile = user.userprofile
+
+        if not profile.public_key:
+            return JsonResponse({'error': 'Public key not found for user'}, status=404)
+
         return JsonResponse({'public_key': profile.public_key})
     except User.DoesNotExist:
         return JsonResponse({'error': 'User not found'}, status=404)
@@ -133,9 +145,6 @@ def get_public_key(request, username):
 
 
 
-from django.core.mail import send_mail
-from django.contrib.auth.decorators import login_required
-import random
 
 @login_required
 def send_delete_otp(request):
@@ -195,8 +204,6 @@ def send_reset_otp(request):
         )
         return redirect('verify_reset_otp')
 
-from django.contrib.auth.models import User
-from django.contrib.auth.hashers import make_password
 
 @login_required
 def verify_reset_otp(request):
@@ -223,35 +230,53 @@ def verify_reset_otp(request):
     return render(request, "profile_app/verify_otp.html")
 
 
+
+@login_required
 def send_message(request):
     if request.method == "POST":
-        sender = request.user
-        receiver_id = request.POST.get("receiver_id")
-        text = request.POST.get("text")
-        media = request.FILES.get("media")
+        try:
+            print("Request POST:", request.POST)
+            print("Request FILES:", request.FILES)
 
-        receiver = User.objects.get(id=receiver_id)
-        encrypted_blob = None
+            receiver_id = request.POST.get("receiver")
+            text = request.POST.get("text")
+            media = request.FILES.get("media")
 
-        if media:
-            encrypted_blob = compress_and_encrypt_media(media)
+            receiver = User.objects.get(id=receiver_id)
+            message = Message.objects.create(
+                sender=request.user,
+                receiver=receiver,
+                text=text,
+                media=media,
+            )
+            return JsonResponse({
+                "status": "success",
+                "message": {
+                    "id": message.id,
+                    "sender": request.user.username,
+                    "text": message.text,
+                    "media_url": message.media.url if message.media else None
+                }
+            })
+        except Exception as e:
+            traceback.print_exc()
+            return JsonResponse({"status": "error", "error": str(e)}, status=500)
 
-        Message.objects.create(
-            sender=sender,
-            receiver=receiver,
-            text=text,
-            encrypted_media_blob=encrypted_blob,
-        )
-        return JsonResponse({"status": "success"})
 
+@login_required
 def fetch_messages(request):
-    user = request.user
     peer_id = request.GET.get("peer_id")
-    peer = User.objects.get(id=peer_id)
+
+    # Validate that peer_id is provided and valid
+    try:
+        peer_id = int(peer_id)
+        peer = User.objects.get(id=peer_id)
+    except (TypeError, ValueError, User.DoesNotExist):
+        return JsonResponse({"messages": [], "error": "Invalid or missing peer ID"}, status=404)
 
     messages = Message.objects.filter(
-        models.Q(sender=user, receiver=peer) |
-        models.Q(sender=peer, receiver=user)
+        Q(sender=request.user, receiver=peer) |
+        Q(sender=peer, receiver=request.user)
     ).order_by("timestamp")
 
     data = []
@@ -259,7 +284,6 @@ def fetch_messages(request):
         media_content = None
         if msg.encrypted_media_blob:
             media_content = decrypt_and_decompress_media(msg.encrypted_media_blob).decode("latin1")
-            # Consider base64 encoding this if you want to show in frontend
 
         data.append({
             "sender": msg.sender.username,
@@ -269,7 +293,6 @@ def fetch_messages(request):
         })
 
     return JsonResponse({"messages": data})
-
 
 @login_required
 def group_list_view(request):

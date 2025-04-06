@@ -55,3 +55,11 @@ class GroupMessage(models.Model):
     def __str__(self):
         # show first 20 characters
         return f"{self.sender.username}: {self.text[:20]}"
+
+
+class BannedEmail(models.Model):
+    email = models.EmailField(unique=True)
+    banned_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.email

@@ -21,21 +21,30 @@ from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
 from .forms import CustomUserCreationForm,CustomAuthenticationForm
 
+from profile_app.models import BannedEmail
 def signup_view(request):
     if request.method == 'POST':
         form = CustomUserCreationForm(request.POST)
         if form.is_valid():
+            email = form.cleaned_data.get('email')
+            # Check if the email is banned
+            if BannedEmail.objects.filter(email=email).exists():
+                form.add_error('email', "This email address is banned.")
+                return render(request, 'social_media/signup.html', {'form': form})
+            
             user = form.save(commit=False)
             user.is_active = False  # Deactivate until email confirmed
             user.first_name = form.cleaned_data.get('first_name')
             user.last_name = form.cleaned_data.get('last_name')
             user.save()
-            # Generate token and uid
+
+            # Generate token and uid for activation email
             token = default_token_generator.make_token(user)
             uid = urlsafe_base64_encode(force_bytes(user.pk))
             activation_link = request.build_absolute_uri(
                 reverse('activate_account', kwargs={'uidb64': uid, 'token': token})
             )
+
             send_mail(
                 'Activate Your Account',
                 f'Click the link to activate your account: {activation_link}',
