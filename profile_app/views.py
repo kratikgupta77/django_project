@@ -147,6 +147,18 @@ def get_public_key(request, username):
         return JsonResponse({'error': 'Profile not found'}, status=404)
 
 
+# views.py
+from django.conf import settings
+from threading import Thread
+from django.core.mail import send_mail
+
+def send_async_email(subject, message, from_email, recipient_list):
+    Thread(target=send_mail, args=(subject, message, from_email, recipient_list), kwargs={'fail_silently': False}).start()
+import random
+from django.contrib.auth.hashers import make_password
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import render, redirect
+from django.contrib.auth.models import User
 
 
 @login_required
@@ -156,17 +168,14 @@ def send_delete_otp(request):
         request.session['delete_otp'] = otp
         request.session['delete_user_id'] = request.user.id
 
-        send_mail(
+        send_async_email(
             "OTP to Delete Your Account",
             f"Your OTP to delete your account is: {otp}",
             settings.DEFAULT_FROM_EMAIL,
-            [request.user.email],
-            fail_silently=False,
+            [request.user.email]
         )
         return redirect('verify_delete_otp')
 
-
-from django.contrib.auth.models import User
 
 @login_required
 def verify_delete_otp(request):
@@ -176,11 +185,8 @@ def verify_delete_otp(request):
             try:
                 user = User.objects.get(id=request.session.get("delete_user_id"))
                 user.delete()
-                
-                # Clear session
                 request.session.pop("delete_otp", None)
                 request.session.pop("delete_user_id", None)
-
                 return redirect('login')
             except User.DoesNotExist:
                 return render(request, "profile_app/enter_otp_delete.html", {"error": "User not found."})
@@ -190,20 +196,18 @@ def verify_delete_otp(request):
     return render(request, "profile_app/enter_otp_delete.html")
 
 
-
 @login_required
 def send_reset_otp(request):
     if request.method == "POST":
         otp = ''.join([str(random.randint(0, 9)) for _ in range(6)])
         request.session['reset_otp'] = otp
         request.session['otp_user_id'] = request.user.id
-        
-        send_mail(
+
+        send_async_email(
             "Your OTP for Password Reset",
             f"Your OTP is: {otp}",
             settings.DEFAULT_FROM_EMAIL,
-            [request.user.email],
-            fail_silently=False,
+            [request.user.email]
         )
         return redirect('verify_reset_otp')
 
@@ -213,27 +217,22 @@ def verify_reset_otp(request):
     if request.method == "POST":
         entered_otp = request.POST.get("otp")
         new_password = request.POST.get("new_password")
-        
+
         if entered_otp == request.session.get("reset_otp"):
             try:
                 user = User.objects.get(id=request.session.get("otp_user_id"))
                 user.password = make_password(new_password)
                 user.save()
-                
-                # Clear session after use
+
                 request.session.pop("reset_otp", None)
                 request.session.pop("otp_user_id", None)
-
-                return redirect('login')  # or wherever you want
+                return redirect('login')
             except User.DoesNotExist:
                 return render(request, "profile_app/verify_otp.html", {"error": "User not found."})
         else:
             return render(request, "profile_app/verify_otp.html", {"error": "Invalid OTP."})
 
     return render(request, "profile_app/verify_otp.html")
-
-
-
 
 @login_required
 def send_message(request):

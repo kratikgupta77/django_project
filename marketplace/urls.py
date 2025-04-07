@@ -10,6 +10,6 @@ urlpatterns = [
     path('artifact/<int:pk>/', views.artifact_detail, name='artifact_detail'),
     path('artifact/<int:pk>/buy/', views.simulate_payment, name='simulate_payment'),
     path('payments/', views.payment_history, name='payment_history'),
-    path('upload-public-key/', views.upload_public_key, name='upload_public_key'),
+    # path('upload-public-key/', views.upload_public_key, name='upload_public_key'),
 
 ]

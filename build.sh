@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
 set -o errexit
 
-# Install system dependencies (Debian-based)
+# Required system packages for pygraphviz and other builds
 apt-get update && apt-get install -y \
-    build-essential \
+    graphviz \
     graphviz-dev \
-    libpq-dev \
-    python3-dev \
+    libgraphviz-dev \
     pkg-config \
-    git
+    python3-dev \
+    build-essential
 
-# Install Python build tools
+# Upgrade pip and build tools
 pip install --upgrade pip setuptools wheel Cython
 
-# Install Python dependencies
+# Install requirements
 pip install -r requirements.txt

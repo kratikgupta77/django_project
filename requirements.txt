@@ -48,3 +48,4 @@ urllib3==1.26.5
 wsaccel==0.6.3
 zipp==1.0.0
 zope.interface==5.4.0
+pygraphviz==1.9

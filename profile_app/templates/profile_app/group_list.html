@@ -21,9 +21,11 @@
 <ul>
     {% for group in groups %}
         <li>
-            {{ group.name }}
-            {% if request.user not in group.members.all %}
-                (<a href="{% url 'join_group' group.id %}">Join</a>)
+            {% if group in user_groups %}
+                <a href="{% url 'group_detail' group.id %}">{{ group.name }}</a>
+                (<a href="{% url 'leave_group' group.id %}">Leave</a>)
+            {% else %}
+                {{ group.name }} (<a href="{% url 'join_group' group.id %}">Join</a>)
             {% endif %}
         </li>
     {% empty %}

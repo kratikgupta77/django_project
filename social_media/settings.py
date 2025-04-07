@@ -6,8 +6,8 @@ load_dotenv()  # <-- this loads the .env file
 # from decouple import config
 
 # SECURE_SSL_REDIRECT = True
-# SESSION_COOKIE_SECURE = True
-# CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
 # SECURE_HSTS_SECONDS = 31536000
 # SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 # SECURE_HSTS_PRELOAD = True
@@ -23,6 +23,7 @@ DEBUG = True
 ALLOWED_HOSTS = ['192.168.2.246', 'localhost', '127.0.0.1','*','fcs-project-wood.onrender.com']
 
 SITE_ID = 1 #for admin
+STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
@@ -40,7 +41,7 @@ RECAPTCHA_PRIVATE_KEY = os.getenv("RECAPTCHA_PRIVATE_KEY")
 RECAPTCHA_USE_SSL = True
 
 FIELD_ENCRYPTION_KEY = os.getenv("FIELD_ENCRYPTION_KEY") # secured private key
-
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 MEDIA_URL = "/media/"
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 # Application definition
