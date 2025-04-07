@@ -50,3 +50,11 @@ zipp
 zope.interface
 gunicorn
 Django>=3.2,<5.0
+python-dotenv
+dj_database_url
+django_recaptcha
+channels
+cryptography
+django_extensions
+django-encrypted-model-fields
+whitenoise
