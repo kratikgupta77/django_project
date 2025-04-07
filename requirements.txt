@@ -49,3 +49,4 @@ wsaccel
 zipp
 zope.interface
 gunicorn
+Django>=3.2,<5.0
