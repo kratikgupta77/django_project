@@ -54,7 +54,7 @@ def receive_encrypted_file(request):
 
 
 
-@login_required
+@login_required 
 def update_public_key(request):
     if request.method == "POST":
         data = json.loads(request.body)
