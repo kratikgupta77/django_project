@@ -48,3 +48,4 @@ urllib3
 wsaccel
 zipp
 zope.interface
+gunicorn
