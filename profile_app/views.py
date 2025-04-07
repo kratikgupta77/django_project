@@ -117,18 +117,18 @@ def messages_view(request):
 
 
 
-key = Fernet.generate_key()
-fernet = Fernet(b'qHImXvD7qzhdQ0gB4Dj5V4T5z7NYzZ4FtZ1ucxvQjrs=')  # Use from user's key ideally
+# key = Fernet.generate_key()
+# fernet = Fernet(b'qHImXvD7qzhdQ0gB4Dj5V4T5z7NYzZ4FtZ1ucxvQjrs=')  # Use from user's key ideally
 
-def compress_and_encrypt_media(file):   
-    compressed_data = zlib.compress(file.read())
-    encrypted_data = fernet.encrypt(compressed_data)
-    return encrypted_data
+# def compress_and_encrypt_media(file):   
+#     compressed_data = zlib.compress(file.read())
+#     encrypted_data = fernet.encrypt(compressed_data)
+#     return encrypted_data
 
-def decrypt_and_decompress_media(blob):
-    decrypted_data = fernet.decrypt(blob)
-    decompressed_data = zlib.decompress(decrypted_data)
-    return decompressed_data
+# def decrypt_and_decompress_media(blob):
+#     decrypted_data = fernet.decrypt(blob)
+#     decompressed_data = zlib.decompress(decrypted_data)
+#     return decompressed_data
 
 
 
