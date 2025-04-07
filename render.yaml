@@ -12,4 +12,4 @@ services:
       - key: DEBUG
         value: "False"
       - key: ALLOWED_HOSTS
-        value: your-app.onrender.com
+        value: fcs-project-wood.onrender.com

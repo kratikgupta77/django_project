@@ -12,6 +12,7 @@ click==8.0.3
 colorama==0.4.4
 constantly==15.1.0
 cryptography==3.4.8
+Cython
 daphne==3.0.2
 ecdsa==0.18.0b1
 hyperlink==21.0.0
