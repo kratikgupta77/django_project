@@ -33,6 +33,8 @@ import base64
 
 from django.core.files.base import ContentFile
 
+
+count =0 #useless
 def receive_encrypted_file(request):
     if request.method == "POST":
         file_data = request.POST.get("file")
