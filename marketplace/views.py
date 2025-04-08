@@ -50,23 +50,58 @@ def artifact_detail(request, pk):
 
 
 
-from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import padding
-import base64
+def simulate_payment(request, pk):
+    artifact = get_object_or_404(Artifact, pk=pk)
+    buyer_profile = request.user.userprofile
+    seller_profile = artifact.seller
 
-def verify_signature(public_key_pem, message, signature_b64):
-    public_key = serialization.load_pem_public_key(public_key_pem.encode())
-    signature = base64.b64decode(signature_b64)
-    try:
-        public_key.verify(
-            signature,
-            message.encode(),
-            padding.PKCS1v15(),
-            hashes.SHA256()
-        )
-        return True
-    except Exception:
-        return False
+    # Prevent the seller from buying their own item
+    if buyer_profile == seller_profile:
+        return render(request, "marketplace/simulate_payment.html", {
+            'artifact': artifact, 
+            'error': 'You cannot purchase your own listing.'
+        })
+
+    # Prevent buying an already sold item
+    if artifact.sold:
+        return render(request, "marketplace/simulate_payment.html", {
+            'artifact': artifact, 
+            'error': 'This item has already been sold.'
+        })
+    
+    # Ensure both buyer and seller have wallets
+    buyer_wallet, _ = Wallet.objects.get_or_create(user_profile=buyer_profile)
+    seller_wallet, _ = Wallet.objects.get_or_create(user_profile=seller_profile)
+
+    price = float(artifact.bidding_price)
+
+    # Check if the buyer has enough balance
+    if buyer_wallet.get_balance() < price:
+        return render(request, "marketplace/simulate_payment.html", {
+            'artifact': artifact, 
+            'error': 'Insufficient funds.',
+            'wallet_balance': buyer_wallet.get_balance()  # Pass wallet balance
+        })
+
+    # Deduct funds from buyer and credit seller
+    buyer_wallet.update_balance(-price)
+    seller_wallet.update_balance(price)
+
+    # Mark artifact as sold
+    artifact.sold = True
+    artifact.save()
+    
+    # Record the transaction
+    PaymentTransaction.objects.create(
+        artifact=artifact,
+        buyer=buyer_profile,
+        seller=seller_profile,
+        amount=price,
+        status="completed"
+    )
+    
+    return redirect('marketplace:artifact_list')
+
 
 @login_required
 def payment_history(request):
@@ -78,93 +113,3 @@ def payment_history(request):
         Q(buyer=user_profile) | Q(seller=user_profile)
     ).order_by('-created_at')
     return render(request, "marketplace/payment_history.html", {'transactions': transactions})
-
-
-from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import padding
-import base64
-
-def sign_message(private_key_pem: str, message: str) -> str:
-    private_key = serialization.load_pem_private_key(private_key_pem.encode(), password=None)
-    signature = private_key.sign(
-        message.encode(),
-        padding.PSS(mgf=padding.MGF1(hashes.SHA256()), salt_length=padding.PSS.MAX_LENGTH),
-        hashes.SHA256()
-    )
-    return base64.b64encode(signature).decode()
-
-
-from django.views.decorators.csrf import csrf_exempt
-from django.http import JsonResponse
-import json
-
-@login_required
-@csrf_exempt
-def upload_public_key(request):
-    if request.method == "POST":
-        data = json.loads(request.body)
-        public_key = data.get("public_key")
-        if public_key:
-            request.user.userprofile.public_key = public_key
-            request.user.userprofile.save()
-            return JsonResponse({"status": "success"})
-        return JsonResponse({"error": "Missing key"}, status=400)
-@login_required
-def simulate_payment(request, pk):
-    artifact = get_object_or_404(Artifact, pk=pk)
-    buyer_profile = request.user.userprofile
-    seller_profile = artifact.seller
-
-    # Prevent self-purchase or duplicate purchase
-    if buyer_profile == seller_profile or artifact.sold:
-        return render(request, "marketplace/simulate_payment.html", {
-            'artifact': artifact,
-            'error': 'You cannot purchase this item.'
-        })
-
-    if request.method == "POST":
-        signature = request.POST.get("signature")
-        message = request.POST.get("message")
-
-        if not signature or not message:
-            return render(request, "marketplace/simulate_payment.html", {
-                'artifact': artifact,
-                'error': "Missing signature or message."
-            })
-
-        # Verify signature using stored public key
-        if not verify_signature(buyer_profile.public_key, message, signature):
-            return render(request, "marketplace/simulate_payment.html", {
-                'artifact': artifact,
-                'error': "Invalid digital signature."
-            })
-
-        # Wallet logic
-        buyer_wallet, _ = Wallet.objects.get_or_create(user_profile=buyer_profile)
-        seller_wallet, _ = Wallet.objects.get_or_create(user_profile=seller_profile)
-        price = float(artifact.bidding_price)
-
-        if buyer_wallet.get_balance() < price:
-            return render(request, "marketplace/simulate_payment.html", {
-                'artifact': artifact,
-                'error': 'Insufficient funds.',
-                'wallet_balance': buyer_wallet.get_balance()
-            })
-
-        buyer_wallet.update_balance(-price)
-        seller_wallet.update_balance(price)
-        artifact.sold = True
-        artifact.save()
-
-        PaymentTransaction.objects.create(
-            artifact=artifact,
-            buyer=buyer_profile,
-            seller=seller_profile,
-            amount=price,
-            status="completed"
-        )
-
-        return redirect('marketplace:artifact_list')
-
-    return render(request, "marketplace/simulate_payment.html", {'artifact': artifact})
-

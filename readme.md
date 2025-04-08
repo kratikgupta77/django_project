@@ -83,6 +83,32 @@ To set up and run this project locally, follow these steps:
 
    Open your web browser and navigate to `http://127.0.0.1:8000/` to view the application.
 
+9. Run Your App in HTTPS Mode
+
+To serve your Django application over **HTTPS**, use **Gunicorn** as the application server. Run the following command in your terminal:
+
+```bash
+gunicorn --bind 127.0.0.1:8000 social_media.wsgi
+```
+
+Make sure that your Nginx server is properly configured to act as a reverse proxy and handle SSL (HTTPS) termination.
+
+---
+
+### 10. Access the Website on IIITD-LAN
+
+Once your server is running and Nginx is properly configured, the website can be accessed from any device connected to the **IIITD-LAN**.
+
+Simply open a browser and go to:
+
+```
+https://192.168.2.246/
+```
+
+Make sure to use `https://` to ensure you're accessing the secure version of the site.
+
+--- 
+
 ## Notes
 
 - Ensure that you have Python and pip installed on your system before proceeding with the setup.

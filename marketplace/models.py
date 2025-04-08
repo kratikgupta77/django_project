@@ -41,11 +41,10 @@ class Artifact(models.Model):
     seller = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name="marketplace_listings")
     created_at = models.DateTimeField(auto_now_add=True)
     image = models.ImageField(upload_to="artifact_images/", blank=True, null=True)
-    sold = models.BooleanField(default=False)  # NEW FIELD
-
+    sold = models.BooleanField(default=False)
     def __str__(self):
         return f"{self.title} - {'SOLD' if self.sold else 'AVAILABLE'}"
-
+    
 
 class PaymentTransaction(models.Model):
     artifact = models.ForeignKey(Artifact, on_delete=models.CASCADE, related_name="transactions")
