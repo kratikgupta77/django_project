@@ -104,17 +104,3 @@ Simply open a browser and go to:
 ```
 https://192.168.2.246/
 ```
-
-Make sure to use `https://` to ensure you're accessing the secure version of the site.
-
---- 
-
-## Notes
-
-- Ensure that you have Python and pip installed on your system before proceeding with the setup.
-- It's recommended to use the virtual environment provided (`venv/`) to manage dependencies.
-- For any issues or contributions, please refer to the repository's issue tracker.
-
----
-
-*This README was generated based on the project structure and available information in the repository.* 
